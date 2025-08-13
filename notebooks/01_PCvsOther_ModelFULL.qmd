@@ -1,0 +1,581 @@
+---
+title: "Sensitivity Analysis of Model Performance for Pseudorca vs Other Species"
+author: "Yvonne Barkley"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+August 2024
+
+The following builds the full Pc Vs Other model using the HICEAS 2017 towed array data. The sensitivity analysis Then, the model is used to predict novel data, such as the 2010-2016 towed array Pc events and data from other acoustic platforms.
+
+## Load Libraries and settings
+
+```{r}
+is.installed <- function(x){
+    is.element(x, installed.packages()[,1])
+}
+
+install_if_missing_and_load <- function(pkg) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+# devtools::install_github('TaikiSan21/PAMpal')
+library(PAMpal)
+library(tidyverse)
+library(here)
+library(rfPermute)
+library(banter)
+library(patchwork)
+library(manipulate) #
+
+
+
+
+library(caret) #confusionMatrix
+# source(here('code/functions/makeBanterID.r'))
+source(here('code/functions/PAMpalWishlist/PAMpalWishlistYB.r'))
+source(here('code/functions/predictions.r'))
+source(here('code/functions/filterClicks.r'))
+# source(here('code/functions/filterClicksCOPY.r'))
+#Set time zone to UTC
+Sys.setenv(TZ = 'UTC')
+```
+
+
+
+## Load data
+
+Acoustic Study from HICEAS 2017
+
+```{r}
+
+#Load 'ac_study' to build and test the model
+load(file = here('notebooks/TA_AcStudies_HICEAS17new.rdata') ) 
+
+ac_study <- TA_AcStudies_HICEAS17new
+
+
+## Load Prediction Acoustic Study
+load(file = here('notebooks/TA_AcStudies_HI_predict.rdata') ) 
+
+```
+
+## Events Removed
+
+For future reference: Several events were removed from the 2017 acoustic study for various reasons, including presence of snapping shrimp, mixed species, equipment noise, or some combination of these reasons.
+
+Original models from Jen already removed 5 events in 1_TA_LoadAcousticStudies.Rmd: TA_AcStudies_HICEAS17new\@events\$\`1705152\` \<- NULL TA_AcStudies_HICEAS17new\@events\$`1705210` \<- NULL TA_AcStudies_HICEAS17new\@events\$\`1706044\` \<- NULL TA_AcStudies_HICEAS17new\@events\$`1706258` \<- NULL TA_AcStudies_HICEAS17new\@events\$`1706259` \<- NULL
+
+Once YB ran new models with the corrected and most up-to-date 2017 acoustic study, additional events were considered for removal due to similar reason as above AND after reviewing the proximity plots. These plots showed certain 577 events being consistently misclassified as 33/Pc. Therefore, YB ran models to test how accuracy would change if these events were removed. The code below includes the different misclassified events YB tested.
+
+Results of these tests showed...
+
+```{r}
+# ## A
+# ac_study@events$`1705264` <- NULL #Pm
+# ## D
+# ac_study@events$`1706311` <- NULL #Pm - very close to 33s in prox plot, few data overall
+# ## E
+# ac_study@events$`1705420` <- NULL #Pm
+# 
+
+## B - removed 4/16/25
+ac_study@events$`1706079` <- NULL #Pm with strumming/tapping noise
+## C - removed 4/10/25
+ac_study@events$`1706080` <- NULL #Sa with Pm and noise
+## F - removed 4/10/25
+ac_study@events$`1706122` <- NULL #Fa with shrimp and Pm
+## G - removed 4/16/25
+ac_study@events$`1706121` <- NULL #Pm, removing this lowers predictive accuracy but it's all shrimp, so should remove...
+
+saveRDS(ac_study, here('notebooks/TA_AcStudies_HICEAS17_20250417.rds'))
+
+
+```
+
+## If changing non-Pc Events to 577 in the Acoustic Study
+
+-   Used 'changeSpeciesId' function in PAMpalWishlistYB.r
+
+## Model Parameters
+
+Load previous model parameters - 2/26/25
+
+```{r}
+# Load model parameters
+load(file = paste0(here('results/PcVsOther/Full_Model'), '/modelParamsTotalSA.rdata'))
+
+dropStk <- model_params[["dropStk"]]
+n_evt = model_params[["n_evt"]]
+#total number of trees for training the Detector models
+n_tree1 = model_params[["n_tree1"]]
+#total number of trees for event model
+n_tree2 = model_params[["n_tree2"]]
+dets <- model_params[["dets"]]
+callsMod <- model_params[["calls"]]
+#TEST PARAMETERS
+# For all detectors
+calls 
+
+
+
+```
+
+Original: Set values and save.
+
+```{r}
+
+# Save model parameters in a list
+
+#stocks to remove - unids and bws
+dropStk <- c('77','177','277','49','59','61','65') #,'46')
+#lowest number of events out of all populations (NWHI = 4 events)
+n_evt = 17#c(10:16) # (n-1, where n = 22 Pc events)
+#total number of trees for training the Detector models
+n_tree1 = 2000 #2000
+#total number of trees for event model
+n_tree2 = 20000 #20000 #25000 #20000 #15000
+dets <- c(2:8)
+
+#TEST PARAMETERS
+# For all detectors
+calls <- c(round(seq(5, 20, length.out = 3),0))#, seq(55, 1100, by = 100))
+
+
+# calls <- round(seq(from = 5, to = 100, length.out = 10),0) #seq(2, 100, 10) #how many calls are needed from each detector? max 5000
+# calls <- seq(100, 1000, 100)
+# dets <- c(2:4) #which detectors to use?
+
+
+iters <- 1# c(1:5)
+
+model_params <- list(dropStk=dropStk,
+                     n_evt=n_evt,
+                     n_tree1=n_tree1,
+                     n_tree2=n_tree2,
+                     calls=calls,
+                     dets=dets,
+                     iters=iters,
+                     notes = 'No BWs and Unids, 13 events. Filtered.')
+                
+save(model_params, file = paste0(here('results/PcVsOther/Full_Model'), '/modelParameters.rdata'))
+
+# save(model_params, file = paste0(here('results/PcVsOther/Sensitivity_analysis'), '/modelParameters.rdata'))
+
+```
+
+## Sensitivity Run for Models Only
+
+2/27/25 - Returned to this analysis.\
+Uses different amounts of training data IN THE FORM OF N_EVT, OR SAMPLE SIZE, to build the model and compare accuracy scores.
+
+This section is used to examine the effects of the number of events included in building the model, which has been 15 historically. But I quantitatively assessed this in Aug 2024 and results supported using 15 events.
+
+This section was also used to test the removal of certain events due to noise
+
+```{r}
+# results_score <- list()
+bantmod_results <- list()
+bantmod_evts  <- list()
+banterModelsList <- list()
+
+### START LOOP ####
+
+for (i in iters){
+  for (sampsize in n_evt){ #instead of call_vall in calls 
+  # for (call_val in calls){
+ #    for (j in seq_along(dets) ) { #line 251
+ # 
+ #     # det_seq  = dets[1:j]
+ # 
+ #     comb <- combn(dets, j, simplify = FALSE)
+ # # 
+ # # 
+ # # # Loop through each combination of detectors
+ #    for (c in comb) {
+
+# DELETE? Comment out if all combinations are included:
+      c = dets
+
+      ######## COMMENTED OUT ON AUG 27, 2024 ########
+# # Make acoustic study using number of calls per detector, call_val
+ ac_study_sub <- ac_study #sampleDetector(AcStudy, n=call_val)
+# 
+# 
+#  # Print Run Info
+#     cat("Iter", i, "For calls = All data", " and dets sequence =", c)
+# 
+# 
+ banter_prop <- export_banter(c(events(ac_study_sub)), dropSpecies =  dropStk)
+# # 
+ banterAllsmallYB <- changeBanterSpeciesId(banter_prop, "577")
+ 
+
+ 
+# #   ### CLICK DETECTOR FILTERS ####
+# # #Remove clicks with bandwidth at 10dB < 5 kHz (Load 'dplyr' package)
+# #
+ for(d in c(1,2,3,4,5,6)){  #ensure that detector numbers match here
+  banterAllsmallYB$detectors[[d]]<-filter(banterAllsmallYB$detectors[[d]],BW_10dB > 5)
+  banterAllsmallYB$detectors[[d]]<-filter(banterAllsmallYB$detectors[[d]],peak > 5 & peak < 80)
+  banterAllsmallYB$detectors[[d]]<-filter(banterAllsmallYB$detectors[[d]],duration > 2 & duration < 1000)
+}
+
+#Remove clicks in individual detectors
+banterAllsmallYB$detectors$Click_Detector_1<-filter(banterAllsmallYB$detectors$Click_Detector_1, peak>2 & peak<15)
+banterAllsmallYB$detectors$Click_Detector_2<-filter(banterAllsmallYB$detectors$Click_Detector_2, peak>15 & peak<30)
+banterAllsmallYB$detectors$Click_Detector_3<-filter(banterAllsmallYB$detectors$Click_Detector_3, peak>30 & peak<50)
+banterAllsmallYB$detectors$Click_Detector_4<-filter(banterAllsmallYB$detectors$Click_Detector_4, peak>30 & peak<50)
+banterAllsmallYB$detectors$Click_Detector_5<-filter(banterAllsmallYB$detectors$Click_Detector_5, peak>50 & peak<80)
+
+# # save(banterAllsmallYB, file = here('results/PcVsOther/Full_Model/banterAllsmallYB_HICEAS2017-CH5_Filtered-577.rdata') )
+
+ ##### RUN BANTER MODEL      
+      
+bant.mdl <- initBanterModel(banterAllsmallYB$events)
+# summary(bant.mdl)
+
+ #Train the Detector Models
+bant.DetMdl <- addBanterDetector(
+  bant.mdl, 
+  data = banterAllsmallYB$detectors[dets],   #detectors included in model, dropped Det 0 (1) =noise, dropped Det 4 (5) bc it had the fewest detections and was screwing up the proportion of data.
+  ntree = n_tree1, 
+  sampsize = n_evt # By default, sampsize is set as half of the smallest sample size of all events (or pops). 
+)
+
+# summary(bant.DetMdl)
+# plotDetectorTrace(bant.DetMdl)
+# beep(1)
+
+
+#Run second stage BANTER event model based on output from the Detector Models
+bant.EventMdl <- runBanterModel(bant.DetMdl, ntree = 20000, sampsize = n_evt)
+
+  #Look at model results
+summary(bant.EventMdl)
+
+#Convert BANTER model to randomforest object
+  eventMdl.rf <- getBanterModel(bant.EventMdl, "event")
+prox <- plotProximity(eventMdl.rf) #, legend.type = "label")  ### Look at function to pull out mds.df object to get proximity values, predictions, and event ids
+# confusionMatrix(eventMdl.rf)  , threshold = .8)
+
+#Get event predictions
+  eventPred_tmp <- casePredictions(eventMdl.rf) 
+  eventPred_tmp$iter <- i
+  # eventPred_tmp$calls_per_det <- call_val
+  
+  misclass_tmp <- casePredictions(eventMdl.rf) %>% 
+  filter(!is.correct) %>%
+  dplyr::select(id, original, predicted)
+
+
+#Give model a new name with signal # and iteration
+if (i <= 9){
+  # new_name <- paste0("banterMdl.Subset_",paste(c, collapse = ""), '_0', i)
+  new_name <- paste0("banterMdl.Subset_", sampsize, '_0', i)
+
+  } else {
+
+  # new_name <- paste0("banterMdl.Subset_", paste(c, collapse = ""), '_', i)
+new_name <- paste0("banterMdl.Subset_", sampsize, '_', i)
+} 
+
+
+#save model and event files
+saveRDS( bant.EventMdl, paste0(here('results/PcVsOther/Full_Model'), '/hiceas17_bantermod.rds') )
+saveRDS( eventMdl.rf, paste0(here('results/PcVsOther/Full_Model'), '/hiceas17_randomforest.rds') )
+
+
+banterModelsList[[ paste0(new_name, '_model.rdata') ]] <- c(banterModel = bant.EventMdl, dets= paste(c, collapse = ""), iter=i)
+
+
+# RESULTS ####
+#Dataframe of BANTER accuracy results
+results_bantTMP <- data.frame(species = bant.pctTrue$species,
+                              # correctDet = bant.pctTrue$detector,
+                              correctEvent = bant.pctTrue$event,
+                              iter = i,
+                              # calls_per_det = call_val,
+                              # tot_calls = 999, #nDetections(AcStudy_PcUO_sub, distinct=FALSE),
+                              # tot_events = c(nEvents$num.events, sum(nEvents$num.events)),
+                              # numCalls = nCalls2[, 2:8],
+                              numMisclass = nrow(misclass_tmp),
+                              detSeq = paste(c, collapse = ","),
+                              sampsize = sampsize)
+                              # sampsize = n_evt)
+
+
+## SAVE STUFF ####
+
+# Save banter results for each run, helpful for plotting
+bantmod_results[[length(bantmod_results) + 1]] <- results_bantTMP
+
+
+# SAVE list of dataframes with prediction results to look at misclassifieds later
+bantmod_evts[[length(bantmod_evts) + 1]] <- eventPred_tmp
+
+#Save banter scores separately, helpful for plotting
+# results_score[[length(results_score) + 1]] <-
+#   unique(data.frame(Iteration = results_bantTMP$i, 
+#              CallsPerDet = results_bantTMP$calls_per_det[3],
+#              TotalCalls = results_bantTMP$tot_calls[1], 
+#              DetSeq = paste(c, collapse = ","), 
+#              OverallScore = results_bantTMP$correctEvent[3], 
+#              numMisclass = nrow(misclass_tmp) ))
+
+# saveRDS(banterModelsList, file= paste0(here('results/PcVsOther/Sensitivity_analysis'), '/banterModelsList.rds') ) 
+
+#  MEMORY saving stuff ####
+# rm( AcStudy_PcUO_sub, banter_prop, bant.mdl, bant.EventMdl, eventMdl.rf, nCalls2, nEvents, misclass_tmp, results_bantTMP, eventPred_tmp )
+rm(bant.mdl, bant.DetMdl, bant.EventMdl, eventMdl.rf, misclass_tmp, results_bantTMP, eventPred_tmp )
+gc()
+    # }
+
+     
+
+ }
+
+  
+  # }
+ 
+  
+  # }
+  
+}  
+
+
+saveRDS(banterModelsList, file= paste0(here('results/PcVsOther/Full_Model'), '/banterModelsList.rds') ) 
+
+# saveRDS(banterModelsList, file= paste0(here('results/PcVsOther/Sensitivity_analysis'), '/banterModelsList.rds') )     
+
+
+```
+
+## Make dataframes from lists
+
+```{r}
+# dataframe with overall model scores per stock per iteration 
+# results_scoreDF <- do.call(rbind, results_score)
+# dataframe with number of calls per detector and number of misclassified
+bantmod_resultsDF <- do.call(rbind, bantmod_results)
+bantmod_evtsDF <- do.call(rbind, bantmod_evts)
+
+
+```
+
+## Save Model List and Dataframes
+
+```{r}
+#parameters
+
+# saveRDS(banterModelsList, file= paste0(here('results/PcVsOther/Sensitivity_analysis'), '/banterModelsList.rds') ) 
+
+saveRDS( bantmod_resultsDF, paste0(here('results/PcVsOther/Full_Model'), '/bantDFall2024_', iters[1], '-', iters[length(iters)], '.rdata') )
+
+saveRDS(bantmod_evts, file= paste0(here('results/PcVsOther/Full_Model/eventPredxnList_'),  iters[1], '-', iters[length(iters)], '.rdata' ) )
+
+saveRDS(bantmod_evtsDF, file= paste0(here('results/PcVsOther/Full_Model/eventPredxnDF_'),  iters[1], '-', iters[length(iters)], '.rdata' ) )
+```
+
+## Plot Model Iteration Results
+
+-   Not needed once model is finalized. This plotting code can plot results of the scores for Pc, Other, and the Overall accuracy. Originally came from the population sensitivity analysis code. This was useful when running a bunch of different combinations of models with different events removed, different detectors included, or different events used per tree, over multiple iterations.
+
+```{r}
+cols =  c("#214DBEFF" ,"#51B4FDFF" ,"#00E3DDFF" ,"#00F293FF" ,"#C6FC3FFF","#FF9B00", "#FF479A")
+
+
+# 
+# results_scoredf <- filter(bantmod_resultsDF, species=="Overall")#group == 'Overall')# & iter != 5)
+# 
+# results_score_mean2 <- results_scoredf %>% group_by(detSeq) %>%
+#                         summarise(mean = mean(correctEvent),
+#                                 sd = sd(correctEvent),
+#                                 mean_mis = mean(numMisclass),
+#                                 sd_mis = sd(numMisclass))# %>% arrange(as.numeric(iter))
+
+# Looked at click combos in smaller groups ####
+# #A
+# results_score_mean2B <- results_score_mean2 %>% filter(detSeq %in% c('2','23','234','236','2345') )
+# #B
+# results_score_mean2B <- results_score_mean2 %>% filter(detSeq %in% c('2346','235','2356','236','24','245') )
+# #C
+# results_score_mean2B <- results_score_mean2 %>% filter(detSeq %in% c('2456','246','25','256','26') )
+# 
+# #D
+# results_score_mean2B <- results_score_mean2 %>% filter(detSeq %in% c('3','34','345','3456','346') )
+# 
+# #E
+# results_score_mean2B <- results_score_mean2 %>% filter(detSeq %in% c('35','356','36','4','45','456') )
+# #F
+# results_score_mean2B <- results_score_mean2 %>% filter(detSeq %in% c('46','5','56','6', '23456') )
+#####
+
+p = ggplot(data =bantmod_resultsDF, aes(x = as.numeric(n_evt), y = correctEvent, color = species)) +
+  geom_line(lwd = .8) +
+  geom_point(size=2) +
+  # geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width = 1, linewidth = 1) +
+        
+  scale_color_manual(values = cols[c(1,3,6)],
+                     labels = c("Pc", "Other", "Overall")) +
+  # scale_fill_fish(option = "Cirrhilabrus_solorensis", direction = -1, begin = 0, end = .9) +  #try this
+  labs(title = paste0("BANTER Scores: Pc vs Other - Full Model, ", iters[length(iters)], " iterations total") , # Clicks Only
+       subtitle = paste0("Excludes BWs & Unids,", " trees=",n_tree1, " & ", n_tree2, ", sampsize = ", n_evt[1], ':', n_evt[length(n_evt)] ) ,
+       x = "Sample Size",
+       y = "Correct Classification Score",
+       color = "Score Type") +
+  theme_bw() +
+    theme(plot.title = element_text(size = 20, face = "bold"),
+          plot.subtitle = element_text(size=14),
+        axis.title.y = element_text(size = 18, margin= margin(r=10)),
+        axis.title.x = element_text(size = 18),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 10, angle = 50, vjust = 0.8),
+        axis.ticks.length=unit(.25, "cm"),
+        panel.grid.minor = element_line(color = "white", linewidth  = 0.5, linetype = "dotted")) + 
+    scale_y_continuous(breaks = pretty(bantmod_resultsDF$correctEvent, n=5)) 
+  #   labels = c(round(seq(5, 50, length.out = 10),0), seq(55, 1100, by = 100)) ) +
+  # scale_y_continuous(limits = c(range(round(results_score_mean2$mean,0))[1] -5, range(round(results_score_mean2$mean,0))[2]+2 ))  
+                     # breaks = seq( range(round(results_score_mean2$mean,0))[1] -5, range(round(results_score_mean2$mean,0))[2]+1, by = 5) )
+
+p
+```
+
+```{r}
+## OR ##
+## If using a variable range for calls_per_det ##
+
+custom_trans <- function(x) {
+  ifelse(x <= 55, x, 55 + (x - 55) / 10)
+}
+  
+results_scoredf$trans_calls <- custom_trans(results_scoredf$calls_per_det)
+
+# Take mean of multiple iterations
+ results_score_mean2 <- results_scoredf %>% group_by(trans_calls,detSeq) %>% 
+                        summarise(mean = mean(correctEvent),
+                                sd = sd(correctEvent),
+                                mean_mis = mean(numMisclass),
+                                sd_mis = sd(numMisclass)) %>% arrange(trans_calls)
+
+### ONLY USE IF PULLING OUT SIGNAL NUMBER ###
+
+# results_score_mean2 <- results_score_mean2 %>%
+#   mutate(
+#     CallsPerDet = as.numeric(str_replace(calls_per_det, "[^0-9]", ""))  # Extract numbers
+#   ) %>%  filter(CallsPerDet > 0)
+
+
+
+# fishualize(15, option= "Cirrhilabrus_solorensis", end=1)
+# cols = fish(31, option = "Cirrhilabrus_solorensis")
+ #"#FF7657FF")
+# cols <-c("#FF7657FF", "#FF9B00", "#EADD6FFF" ,"#56C0BFFF", "#214DBEFF")
+ 
+
+p = ggplot(data =results_score_mean2, aes(x = calls_per_det, y = mean, color = detSeq)) +
+  geom_line(lwd = .8) +
+  geom_point(size=2) +
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width = 1, linewidth = 1) +
+          xlab("Calls per Detector") +
+          ylab("Overall Correct Classification Score") +
+  scale_color_manual(values = cols) +
+  # scale_fill_fish(option = "Cirrhilabrus_solorensis", direction = -1, begin = 0, end = .9) +  #try this
+  labs(title = paste0("BANTER Scores: Pc vs Other, ", min(calls), "-", max(calls), " signals, ", iters[length(iters)], " runs each") , # Clicks Only
+       subtitle = "Excludes BWs & Unids",
+       x = "# of Signals per Detector",
+       y = "Correct Classification Score",
+       color = "Detectors Included") +
+  theme_bw() +
+    theme(plot.title = element_text(size = 20, face = "bold"),
+          plot.subtitle = element_text(size=16),
+        axis.title.y = element_text(size = 18, margin= margin(r=10)),
+        axis.title.x = element_text(size = 18),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 10, angle = 50, vjust = 0.8),
+        axis.ticks.length=unit(.25, "cm"),
+        panel.grid.minor = element_line(color = "white", linewidth  = 0.5, linetype = "dotted")) +
+  scale_x_continuous(breaks = custom_trans(c(round(seq(5, 50, length.out = 10),0), seq(55, 1100, by = 100))),
+    labels = c(round(seq(5, 50, length.out = 10),0), seq(55, 1100, by = 100)) ) +
+  scale_y_continuous(limits = c(range(round(results_score_mean2$mean,0))[1] -5, range(round(results_score_mean2$mean,0))[2]+2 ))  
+                     # breaks = seq( range(round(results_score_mean2$mean,0))[1] -5, range(round(results_score_mean2$mean,0))[2]+1, by = 5) )
+  
+
+p
+
+```
+
+### Plot Panel
+
+```{r}
+# Use patchwork for panel plotting
+combined_plot <- ((pA + theme(plot.title = element_text(size = 10, face = "bold"),
+          plot.subtitle = element_text(size=5),
+        axis.title.y = element_text(size = 10, margin= margin(r=10)),
+        axis.title.x = element_text(size = 10),
+        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text(size = 9, angle = 50, vjust = 0.8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.height = unit(0.5, "lines"))) + 
+          (pB + theme(plot.title = element_text(size = 10, face = "bold"),
+          plot.subtitle = element_text(size=5),
+        axis.title.y = element_text(size = 10, margin= margin(r=10)),
+        axis.title.x = element_text(size = 10),
+        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text(size = 9, angle = 50, vjust = 0.8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.height = unit(0.5, "lines"))) ) /
+                ( (pC +theme(plot.title = element_text(size = 10, face = "bold"),
+          plot.subtitle = element_text(size=5),
+        axis.title.y = element_text(size = 10, margin= margin(r=10)),
+        axis.title.x = element_text(size = 10),
+        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text(size = 9, angle = 50, vjust = 0.8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.height = unit(0.5, "lines"))) + (pD + theme(plot.title = element_text(size = 10, face = "bold"),
+          plot.subtitle = element_text(size=5),
+        axis.title.y = element_text(size = 10, margin= margin(r=10)),
+        axis.title.x = element_text(size = 10),
+        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text(size = 9, angle = 50, vjust = 0.8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.height = unit(0.5, "lines")) )) / 
+  ( (pE + theme(plot.title = element_text(size = 10, face = "bold"),
+          plot.subtitle = element_text(size=5),
+        axis.title.y = element_text(size = 10, margin= margin(r=10)),
+        axis.title.x = element_text(size = 10),
+        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text(size = 9, angle = 50, vjust = 0.8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.height = unit(0.5, "lines")) ) + (pF + theme(plot.title = element_text(size = 10, face = "bold"),
+          plot.subtitle = element_text(size=5),
+        axis.title.y = element_text(size = 10, margin= margin(r=10)),
+        axis.title.x = element_text(size = 10),
+        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text(size = 9, angle = 50, vjust = 0.8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.height = unit(0.5, "lines")) ) )
+combined_plot
+
+```
+
+## Save Plot
+
+```{r}
+save_plot = p
+
+ggsave( paste0( here('results/PcVsOther/Full_Model'), '/CorrectScores-', iters[1], '-', iters[length(iters)], '-Dets', paste(dets, collapse = ""),'.png'), plot = save_plot, width = 10, height = 6, dpi = 300)
+```
+
