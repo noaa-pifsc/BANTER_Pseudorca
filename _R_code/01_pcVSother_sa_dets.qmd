@@ -79,6 +79,21 @@ acstudy_predict <- readRDS(file.path(localwd, 'AcStudy_HI_MI_pred.rds') )
 drop_Sp <- c('77','177','277','377','49','59','61','65')
 ```
 
+## Choose detector combination
+```{r}
+#Clicks and Whistles Only
+# dets <- c(2:5,7,8)
+# det_code <- 'ECDW'
+
+#Clicks and Cepstrum Only
+# dets <- c(2:6,8)
+# det_code <- 'ECCEP'
+
+#Whistles and Cepstrum Only
+dets <- c(6,7)
+det_code <- 'DWCEP'
+```
+
 ## Parameters for Predictions
 Change detector combination to use
 ```{r}
@@ -88,26 +103,14 @@ Change detector combination to use
 callsMod <- 'All' 
 callsPrd <- c(3, 6, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 10000, 20000, 30000) 
 
-#Clicks and Whistles Only
-# dets <- c(2:5,7,8)
-# det_code <- 'ECDW'
-
-#Clicks and Cepstrum Only
-dets <- c(2:6,8)
-det_code <- 'ECCEP'
-
-#Whistles and Cepstrum Only
-# dets <- c(6,7)
-# det_code <- 'DWCEP'
-
 iters <- c(1:100)
 
 predxn_params <- list(callsMod=callsMod,
                      callsPrd=callsPrd,
                      dets=dets,
-                     det_code = 'DWCEP',
+                     det_code = det_code,
                      iters=iters,
-                     notes = paste0('Detectors for clicks and cepstrum (', det_code, '), no clicks. Excludes BWs and Unids.'))
+                     notes = paste0(det_code, ' - Excludes BWs and Unids. - ', Sys.time()) )
                 
 
 if (!dir.exists(file.path(localwd,"output"))) {
@@ -240,15 +243,13 @@ confMat <- confusionMatrix(factor(pred_resultsDF$predicted), factor(pred_results
 plan("sequential")
 
 tictoc::toc()
-```
 
 ## Save predictions from sensitivity analysis
-
-```{r}
-
 saveRDS(sens_an_preds_dets, file= file.path(localwd, 'output', paste0('sens_an_', det_code, '_results.rds') ) )
 
+
 ```
+
 
 ## Plot Setup
 
