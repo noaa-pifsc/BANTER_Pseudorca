@@ -294,3 +294,82 @@ p
 ggsave( file= file.path(localwd, 'output', 'sens_an_pred.png'), plot = p, width = 10, height = 6, dpi = 300 ) 
 
 ```
+
+
+## Calculate SA Metrics
+```{r}
+results_precrecall33 <- data2plot %>%
+  mutate(
+    # Class 33
+    recall    = true33 / (true33 + false33),  #sensitivity/True Positive Rate, y-axis on ROC
+    precision = true33 / (true33 + false577), # proportion of positive results that were correctly classified
+    F1       = 2 * (precision * recall) / (precision + recall))
+
+```
+
+
+
+
+```{r}
+## All below plots the average precision, recall, and F1 separately for Pc only
+
+results_metricsb <- results_precrecall33 %>% group_by(tot_sigp, trans_sigp) %>%
+                       summarise(mean_precision = mean(precision, na.rm = TRUE),
+                                 sd_precision = sd(precision),
+    mean_recall = mean(recall, na.rm = TRUE),
+    sd_recall = sd(recall),
+    mean_accuracy = mean(overall, na.rm = TRUE),
+    sd_accuracy = sd(overall),
+    mean_f1 = mean(F1, na.rm = TRUE),
+    sd_f1 = sd(F1),
+    .groups = "drop"
+  ) %>% 
+  pivot_longer(
+    cols = c(starts_with("mean_"), starts_with("sd_")),
+    names_to = c(".value", "metric"),
+    names_pattern = "(mean|sd)_(.*)")
+
+
+```
+
+
+## Plot SA Metrics
+```{r}
+ # results_metricsLONG[results_metricsLONG$metric == "33", ]
+# F1 Score plot
+plot_metrics <-   ggplot(data = results_metricsb, aes(x = trans_sigp, y = mean, color = factor(metric))) +
+  geom_line() +
+  geom_point(size = 3) +
+  geom_errorbar( aes(ymin = mean - sd, ymax = mean + sd), width = 0.05) +
+  labs(
+    # title = "F1 Score",
+    x = "Signals per Detector",
+    y = "Score",
+    color = ""
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = results_metricsLONG$trans_sigp,
+labels = results_metricsLONG$tot_sigp) +
+  scale_y_continuous(breaks = pretty(results_metricsLONG$mean, n=6)) +
+  
+  scale_color_manual(values = cols[c(1,6,4,7)],
+                     labels = c("Overall Accuracy", "F-score", "Precision", "Recall")) +
+  
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        plot.subtitle = element_text(size=13),
+        axis.title.y = element_text(size = 16, margin= margin(r=10)),
+        axis.title.x = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 10, angle = 50, vjust = 0.8),
+        axis.ticks.length=unit(.25, "cm"),
+        panel.grid.minor = element_line(color = "white", linewidth  = 0.5,
+                                        linetype = "dotted"),
+         panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    legend.text = element_text(size=12)) 
+
+plot_metrics
+
+
+ggsave( paste0( here('results/PcVsOther/Sensitivity_analysis'), '/PredictionMetrics_', Sys.Date(),'.png'), plot = plot_metrics, width = 12, height = 6, dpi = 300)
+```  

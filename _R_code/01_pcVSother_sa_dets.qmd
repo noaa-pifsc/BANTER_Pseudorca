@@ -16,7 +16,6 @@ library("easypackages")
 libraries("PAMpal", "tidyverse", "banter", "rfPermute", "manipulate", "here", "caret", "future", "foreach", "doFuture", "progressr")
 here()
 
-localwd <- here("_R_code")
 
 ## functions
 source(here('_R_code/filterClicks.r'))
@@ -62,15 +61,33 @@ Sys.setenv(TZ = 'UTC')
 ## Load banter model
 
 ```{r}
-bant_model <- readRDS(file.path(localwd, "BanterModel_McCullough2021.rds"))
+bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
+```
+
+```{r}
+bant_dat_2017 <- readRDS(file.path('data', 'banterAllsmall_HICEAS2017-CH5_Filtered-577.rds'))
+
+
+## Created a model that only included clicks and cepstrums
+## This produced better
+bant_mdl_ECCEP  <- initBanterModel(bant_dat_2017$events)
+  bant_mdl_ECCEP  <- addBanterDetector(bant_mdl_ECCEP,
+    data = bant_dat_2017$detectors[c(2,3,4,5,6,7)], # excludes click_detector_0 and WHISTLES
+    ntree = 5000,
+    sampsize = 15
+  )
+bant_mdl_ECCEP <- runBanterModel(bant_mdl_ECCEP, ntree = 10000, sampsize = 15)
+  
+# This is a model with only clicks and cepstrums to test  
+bant_model <- bant_mdl_ECCEP
+saveRDS(bant_mdl_ECCEP, file.path('data', 'bant_mdl_ECCEP.rds'))
 ```
 
 ## Load predicton data
 
 ```{r}
-acstudy_predict <- readRDS(file.path(localwd, 'AcStudy_HI_MI_pred.rds') ) 
-# saveRDS(acstudy_predict, file.path(localwd, 'AcStudy_HI_MI_pred.rds') )
-# saveRDS(banter_pred, file.path(localwd, 'banter_SA_HI_MI_pred.rds') )
+acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') ) 
+
 ```
 
 ## Species codes to exclude from analysis = unidentified dolphins and beaked whales
@@ -86,16 +103,15 @@ drop_Sp <- c('77','177','277','377','49','59','61','65')
 # det_code <- 'ECDW'
 
 #Clicks and Cepstrum Only
-# dets <- c(2:6,8)
-# det_code <- 'ECCEP'
+dets <- c(2:6,8)
+det_code <- 'ECCEP'
 
 #Whistles and Cepstrum Only
-dets <- c(6,7)
-det_code <- 'DWCEP'
+# dets <- c(6,7)
+# det_code <- 'DWCEP'
 ```
 
 ## Parameters for Predictions
-Change detector combination to use
 ```{r}
 
 #TEST PARAMETERS
@@ -110,20 +126,21 @@ predxn_params <- list(callsMod=callsMod,
                      dets=dets,
                      det_code = det_code,
                      iters=iters,
-                     notes = paste0(det_code, ' - Excludes BWs and Unids. - ', Sys.time()) )
+                     notes = paste0(det_code, ' - Excludes BWs and Unids. - Uses bant_mdl_ECCEP - ', Sys.time()) )
                 
 
-if (!dir.exists(file.path(localwd,"output"))) {
-  dir.create(file.path(localwd,"output"))
+if (!dir.exists(file.path("output"))) {
+  dir.create(file.path("output"))
 }
 
-saveRDS(predxn_params, file.path(localwd, "output", paste0("sens_an_", det_code, "_params.rds")) )
+saveRDS(predxn_params, file.path("output", paste0("sens_an_", det_code, "_params.rds")) )
 
 ```
 
 ## Sensitivity Analysis Loop
 
 ```{r}
+
 
 ### START LOOP ####
 
@@ -218,19 +235,19 @@ confMat <- confusionMatrix(factor(pred_resultsDF$predicted), factor(pred_results
     #   
     #   } else {
     
-     confMatscore <-data.frame(overall=confMat[["overall"]][[1]],
-                     true33 = confMat[["table"]][1],
-                     false33 = confMat[["table"]][2],
-                     false577 = confMat[["table"]][3],
-                     true577 = confMat[["table"]][4],
-                     iter = i,
-                     tot_sigp = p,
-                     tot_sigm = callsMod)
+     # confMatscore <-data.frame(overall=confMat[["overall"]][[1]],
+     #                 true33 = confMat[["table"]][1],
+     #                 false33 = confMat[["table"]][2],
+     #                 false577 = confMat[["table"]][3],
+     #                 true577 = confMat[["table"]][4],
+     #                 iter = i,
+     #                 tot_sigp = p,
+     #                 tot_sigm = callsMod)
       #} 
  
  return(list(
    pred_results = pred_resultsDF, 
-   confmat_score = confMatscore))
+   confmat_score = confMat))
 
  } # callsPrd
     
@@ -245,7 +262,7 @@ plan("sequential")
 tictoc::toc()
 
 ## Save predictions from sensitivity analysis
-saveRDS(sens_an_preds_dets, file= file.path(localwd, 'output', paste0('sens_an_', det_code, '_results.rds') ) )
+saveRDS(sens_an_preds_dets, file= file.path('output', paste0('sens_an_', det_code, '_results_ECCEPmodel.rds') ) )
 
 
 ```
@@ -322,6 +339,6 @@ pred_plot
 
 ## Save Plot
 ```{r}
-ggsave( file= file.path(localwd, 'output', paste0('sens_an_', det_code, '.png') ), plot = pred_plot, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= file.path('output', paste0('sens_an_', det_code, '.png') ), plot = pred_plot, width = 10, height = 6, dpi = 300 ) 
 
 ```
