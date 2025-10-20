@@ -33,7 +33,7 @@ new_sp_id <- function(x, nonPC) {
 #function to take the log of the signals per detector for plotting purposes
 make_log_seq <- function(df, column_name, new_column_name = "Log_Sequence", from = 1, to = length(callsPrd)) {
     unique_vals <- sort(unique(df[[column_name]])) # Get unique values
-    log_seq <- log10(callsPrd) # Generatelog values of original sequence
+    log_seq <- log10(callsPrd) # Generate log values of original sequence
   
   # Create a lookup table and map it to the original values
     lookup <- setNames(log_seq, unique_vals) 
@@ -60,30 +60,37 @@ Sys.setenv(TZ = 'UTC')
 
 ## Load banter model
 
+Load original model from McCullough et al. 2021.
 ```{r}
 bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
 ```
 
+OPTIONAL (for testing purposes): Create additional model (using same input data as McCullough et al. 2021) that included click and cepstrum data only. This includes acoustic events from HICEAS 2017 that were visually verified. 
 ```{r}
-bant_dat_2017 <- readRDS(file.path('data', 'banterAllsmall_HICEAS2017-CH5_Filtered-577.rds'))
+# bant_dat_2017 <- readRDS(file.path('data', 'banterAllsmall_HICEAS2017-CH5_Filtered-577.rds'))
+# 
+# 
+# ## Created a model that only included clicks and cepstrums
+# ## This produced better
+# bant_mdl_ECCEP  <- initBanterModel(bant_dat_2017$events)
+# bant_mdl_ECCEP  <- addBanterDetector(bant_mdl_ECCEP,
+#                                      data = bant_dat_2017$detectors[c(2,3,4,5,6,7)], # excludes click_detector_0 (index = 1) and WHISTLES (index = 8)
+#                                      ntree = 5000,
+#                                      sampsize = 15
+# )
+# bant_mdl_ECCEP <- runBanterModel(bant_mdl_ECCEP, ntree = 10000, sampsize = 15)
+#   
+# # This is a model with only clicks and cepstrums to test  
+# # getDetectorNames(bant_mdl_ECCEP) # check = cepstrum and clicks 1-5 
+# bant_model <- bant_mdl_ECCEP
+# saveRDS(bant_mdl_ECCEP, file.path('data', 'bant_mdl_ECCEP.rds'))
 
-
-## Created a model that only included clicks and cepstrums
-## This produced better
-bant_mdl_ECCEP  <- initBanterModel(bant_dat_2017$events)
-  bant_mdl_ECCEP  <- addBanterDetector(bant_mdl_ECCEP,
-    data = bant_dat_2017$detectors[c(2,3,4,5,6,7)], # excludes click_detector_0 and WHISTLES
-    ntree = 5000,
-    sampsize = 15
-  )
-bant_mdl_ECCEP <- runBanterModel(bant_mdl_ECCEP, ntree = 10000, sampsize = 15)
-  
-# This is a model with only clicks and cepstrums to test  
-bant_model <- bant_mdl_ECCEP
-saveRDS(bant_mdl_ECCEP, file.path('data', 'bant_mdl_ECCEP.rds'))
+# bant_model <- readRDS(file.path('data', 'bant_mdl_ECCEP.rds'))
 ```
 
 ## Load predicton data
+
+This AcousticStudy includes acoustic events from multiple cruises over multiple years and includes events that did not have visual confirmation of species. 
 
 ```{r}
 acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') ) 
@@ -98,6 +105,8 @@ drop_Sp <- c('77','177','277','377','49','59','61','65')
 
 ## Choose detector combination
 ```{r}
+# The order of detectors in acstudy_predict is: C0, C1, C2, C3, C4, CEP, WMD, C5
+
 #Clicks and Whistles Only
 # dets <- c(2:5,7,8)
 # det_code <- 'ECDW'
@@ -119,7 +128,7 @@ det_code <- 'ECCEP'
 callsMod <- 'All' 
 callsPrd <- c(3, 6, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 10000, 20000, 30000) 
 
-iters <- c(1:100)
+iters <- c(1:2)
 
 predxn_params <- list(callsMod=callsMod,
                      callsPrd=callsPrd,
@@ -151,7 +160,7 @@ counter <-1
 options(doFuture.rng.onMisuse = "ignore", future.globals.maxSize = 2 * 1024^3)
 plan("multisession", workers=7)
 
-tictoc::tic(
+tictoc::tic()
 
 for (i in iters){
 
@@ -210,18 +219,34 @@ for (i in iters){
     pred_resultsDF$tot_sigm = callsMod
     pred_resultsDF$dets = paste(dets, collapse = "")
     
-all_levels <- union(levels(factor(pred_resultsDF$predicted)),
-                    levels(factor(pred_resultsDF$original)))
-pred_resultsDF$predicted <- factor(pred_resultsDF$predicted, levels = all_levels)
-pred_resultsDF$original  <- factor(pred_resultsDF$original,  levels = all_levels)   
+    # create different predictions based on higher threshold values
+    pred_resultsDF$predicted60 <- "X577"
+    for (thd in seq(1:nrow(pred_resultsDF))){
+      if (pred_resultsDF$X33[thd] >= 0.6) {
+        pred_resultsDF$predicted60[thd] <- "X33"
+      }
+    }
+    
+# all_levels <- union(levels(factor(pred_resultsDF$predicted)),
+#                     levels(factor(pred_resultsDF$original)))
+# pred_resultsDF$predicted <- factor(pred_resultsDF$predicted, levels = all_levels)
+# pred_resultsDF$original  <- factor(pred_resultsDF$original,  levels = all_levels)   
 
 
 ## SAVE confusion matrices in a list
 
 ## This works, but EC/CEP still doesn't predict 33 correctly   
     # confMat <- safe_confusionMatrix(pred_resultsDF$predicted, pred_resultsDF$original)
- 
-confMat <- confusionMatrix(factor(pred_resultsDF$predicted), factor(pred_resultsDF$original), mode = 'everything')
+
+# confMat <- confusionMatrix(factor(pred_resultsDF$predicted), factor(pred_resultsDF$original), mode = 'everything')
+
+confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
+                                  factor(pred_resultsDF$original), 
+                                  mode = 'everything')
+
+confMat60 <- caret::confusionMatrix(factor(pred_resultsDF$predicted60),
+                                  factor(pred_resultsDF$original), 
+                                  mode = 'everything')
 
     # if (all(dets != 7)) { 
     #  confMatscore <-data.frame(overall=confMat[["overall"]][[1]],
@@ -256,7 +281,7 @@ confMat <- confusionMatrix(factor(pred_resultsDF$predicted), factor(pred_results
      counter <- counter + 1 
     
   } #iteration
-)
+# )
 plan("sequential")
 
 tictoc::toc()
@@ -278,21 +303,16 @@ data2plot <- data.frame()
 for (y in (1:length(iters)) ){ 
   for (k in (1:length(callsPrd))) {
   
-  tmp <-sens_an_preds_dets[[y]][[k]][["confmat_score"]]
-   
-  data2plot <- rbind(data2plot, tmp)
+  tmp <- sens_an_preds_dets[[y]][[k]][["confmat_score"]]
+  tmpOut <- data.frame(tot_sigp = callsPrd[k], iter = y, 
+                       overall = tmp$overall[["Accuracy"]])
+   data2plot <- rbind(data2plot, tmpOut)
+  # data2plot <- rbind(data2plot, data.frame(overall = tmp$overall[["Accuracy"]]))
   }
 }
 
-
-## Assign log values to original values of 'signals per detector'
-df <- data.frame(tot_sigp = callsPrd, times = 100)
-
-data2plot2 <- make_log_seq(data2plot, "tot_sigp", "trans_sigp")
-head(data2plot2)
-
-data2plot <- data2plot2
-
+# add a column with number of calls transformed to log scale
+data2plot <- make_log_seq(data2plot, "tot_sigp", "trans_sigp")
 
 ```
 
@@ -305,9 +325,10 @@ data2plot <- data2plot2
 
 results_scorep <- data2plot %>% group_by(tot_sigp, trans_sigp) %>%
                         summarise(mean = mean(overall),
-                                sd = sd(overall),
-                                mean_mis = mean(false33),
-                                sd_mis = sd(false33))# %>% arrange(as.numeric(iter))
+                                sd = sd(overall))
+#,
+                              #  mean_mis = mean(false33),
+                               # sd_mis = sd(false33))# %>% arrange(as.numeric(iter))
 
 
 pred_plot = ggplot(data = results_scorep, aes(x = trans_sigp, y = mean)) +
