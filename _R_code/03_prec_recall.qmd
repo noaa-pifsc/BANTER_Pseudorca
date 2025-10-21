@@ -1,0 +1,169 @@
+---
+title: "Precision-Recall Curves"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+library(PRROC)
+library(tidyverse)
+
+
+```
+
+# Load the classification results of sensitivity analysis (large list)
+```{r}
+# Set det_combo to 1 and change det_code accordingly if plotting results from different detector combinations
+det_combo <- 1
+det_code <- 'ECCEP'
+
+if (det_combo == 0){
+sa_results <- readRDS(file.path('output', 'sens_an_results.rds'))
+} else {
+sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results.rds')) )
+}
+
+```
+
+
+# 1. Make Precision-Recall dataframe 
+```{r}
+data2plot_pr <- data.frame()
+
+for (y in (1:length(iters)) ){ 
+  for (z in (1:length(callsPrd))) {
+    
+# Get true binary labels    
+true_labels <- factor(sa_results[[y]][[z]][["pred_results"]][["original"]], levels= c("X33", "X577")) 
+
+# Calculate prevalence ( proportion of the total population that belongs to the positive class, FKWs )
+prevalence = sum(true_labels=='X33')/ (sum(true_labels=='X33') +sum(true_labels=='X577'))
+
+# Get model-predicted probabilities for "X33" (positive class)
+prob_33 <- sa_results[[y]][[z]][["pred_results"]][["X33"]] 
+
+# Create the PR curve
+pr_obj <- pr.curve(scores.class0 = prob_33[true_labels == "X33"],
+                   scores.class1 = prob_33[true_labels == "X577"],
+                   curve = TRUE)
+
+pr_data <- data.frame(iter = y,
+                      tot_sigp = callsPrd[z],
+                      Recall = pr_obj$curve[,1],
+                      Precision = pr_obj$curve[,2],
+                      Threshold = pr_obj$curve[,3],
+                      AUPRC = pr_obj$auc.integral,
+                      prev = prevalence) %>% filter(Recall > 0)
+
+data2plot_pr <- rbind(data2plot_pr, pr_data)
+  }
+}
+
+```
+
+# 2. Calculate average P-R curves for total signals
+```{r}
+# Define common recall points for interpolating the mean curves
+recall_points <- seq(0, 1, length.out = 100)
+
+# Calculate the mean curve coordinates per tot_sigp
+averaged_pr_curves <- data2plot_pr %>%
+  # Group by the model to perform interpolation separately
+  group_by(tot_sigp, iter) %>%
+  do({
+    # Interpolate Precision values at common Recall points
+    approx_precision <- approx(.$Recall, .$Precision, xout = recall_points, rule = 2)
+    data.frame(Recall = approx_precision$x, Precision = approx_precision$y, Model = unique(.$tot_sigp))
+  }) %>%
+  ungroup() %>%
+  # Now group by the common Recall points and find the mean Precision across models
+  group_by(tot_sigp, Recall) %>%
+  summarise(Mean_Precision = mean(Precision, na.rm = TRUE), .groups = 'drop')
+
+```
+
+# 3. Plot all P-R curves
+```{r}
+multi_pr_plot <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
+  
+  # Plot individual model curves (colored by total signals)
+  # interaction() prevents sawtooth, ensures that the correct points are connected between both factors
+  geom_line(aes(color = as.factor(tot_sigp), group = interaction(tot_sigp, iter)), 
+            linewidth = 0.8, alpha = 0.8) +
+  
+  # Plot the averaged curve (bold and black)
+  geom_line(data = averaged_pr_curves,
+            aes(y = Mean_Precision, group = as.factor(tot_sigp)),
+            color = 'red', #as.factor(tot_sigp)),
+            linewidth = 0.75, linetype = "dashed") +
+  # Add baseline prevalence line
+  geom_hline(yintercept = mean(data2plot_pr$prev), linetype = "dotted", linewidth=1.2, color = "darkgray") +
+  
+  labs(title = "Precision-Recall Curves (with Averaged Curves)",
+       subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
+       x = "Recall (Sensitivity)",
+       y = "Precision",
+       color = "Signals per Detector") +
+  scale_colour_viridis_d() +
+  # scale_color_manual(values = c("Model A" = "#0072B2", "Model B" = "#D55E00")) +
+  theme_bw() +
+  coord_fixed() +
+  xlim(0, 1) + ylim(0, 1)
+
+multi_pr_plot
+```
+
+## Save Plot
+```{r}
+if (det_combo == 0){
+ggsave( file= file.path('output', paste0('prec_rec_all.png') ), plot = multi_pr_plot, width = 10, height = 6, dpi = 300 ) 
+} else {
+ggsave( file= file.path('output', paste0('prec_rec_all_', det_code, '.png') ), plot = multi_pr_plot, width = 10, height = 6, dpi = 300 ) 
+}
+
+```
+
+
+# 4. Plot mean P-R curves
+```{r}
+multi_pr_plot_mean <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
+  
+  # Plot individual model curves (colored by total signals)
+  # interaction() prevents sawtooth, ensures that the correct points are connected between both factors
+  # geom_line(aes(color = as.factor(tot_sigp), group = interaction(tot_sigp, iter)), 
+  #           linewidth = 0.8, alpha = 0.8) +
+  
+  # Plot the averaged curve (bold and black)
+  geom_line(data = averaged_pr_curves,
+            aes(y = Mean_Precision, group = as.factor(tot_sigp),
+            color = as.factor(tot_sigp)),
+            linewidth = 1) +
+  # Add baseline prevalence line
+  geom_hline(yintercept = mean(data2plot_pr$prev), linetype = "dotted", linewidth=1.2, color = "darkgray") +
+  
+  labs(title = "Mean Precision-Recall Curves",
+       subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
+       x = "Recall (Sensitivity)",
+       y = "Precision",
+       color = "Signals per Detector") +
+  scale_colour_viridis_d() +
+  # scale_color_manual(values = c("Model A" = "#0072B2", "Model B" = "#D55E00")) +
+  theme_bw() +
+  coord_fixed() +
+  xlim(0, 1) + ylim(0, 1)
+
+multi_pr_plot_mean
+```
+
+## Save Plot
+```{r}
+if (det_combo == 0){
+ggsave( file= file.path('output', paste0('prec_rec_means.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+} else {
+ggsave( file= file.path('output', paste0('prec_rec_means_', det_code, '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+}
+
+```

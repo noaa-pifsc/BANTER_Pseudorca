@@ -14,8 +14,6 @@ editor_options:
 
 library("easypackages")
 libraries("PAMpal", "tidyverse", "banter", "rfPermute", "manipulate", "here", "caret", "future", "foreach", "doFuture", "progressr")
-here()
-
 
 ## functions
 source(here('_R_code/filterClicks.r'))
@@ -56,16 +54,20 @@ select_detectors <- function(bant_lst, detector_nums) {
 
 #Set time zone to UTC
 Sys.setenv(TZ = 'UTC')
+
+here()
 ```
 
 ## Load banter model
 
 Load original model from McCullough et al. 2021.
+
 ```{r}
 bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
 ```
 
-OPTIONAL (for testing purposes): Create additional model (using same input data as McCullough et al. 2021) that included click and cepstrum data only. This includes acoustic events from HICEAS 2017 that were visually verified. 
+OPTIONAL (for testing purposes): Create additional model (using same input data as McCullough et al. 2021) that included click and cepstrum data only. This includes acoustic events from HICEAS 2017 that were visually verified.
+
 ```{r}
 # bant_dat_2017 <- readRDS(file.path('data', 'banterAllsmall_HICEAS2017-CH5_Filtered-577.rds'))
 # 
@@ -90,7 +92,7 @@ OPTIONAL (for testing purposes): Create additional model (using same input data 
 
 ## Load predicton data
 
-This AcousticStudy includes acoustic events from multiple cruises over multiple years and includes events that did not have visual confirmation of species. 
+This AcousticStudy includes acoustic events from multiple cruises over multiple years and includes events that did not have visual confirmation of species.
 
 ```{r}
 acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') ) 
@@ -104,6 +106,7 @@ drop_Sp <- c('77','177','277','377','49','59','61','65')
 ```
 
 ## Choose detector combination
+
 ```{r}
 # The order of detectors in acstudy_predict is: C0, C1, C2, C3, C4, CEP, WMD, C5
 
@@ -121,6 +124,7 @@ det_code <- 'ECCEP'
 ```
 
 ## Parameters for Predictions
+
 ```{r}
 
 #TEST PARAMETERS
@@ -242,7 +246,8 @@ for (i in iters){
 
 confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
                                   factor(pred_resultsDF$original), 
-                                  mode = 'everything')
+                                  mode = 'everything', 
+                                  positive = 'X33')
 
 confMat60 <- caret::confusionMatrix(factor(pred_resultsDF$predicted60),
                                   factor(pred_resultsDF$original), 
@@ -287,11 +292,10 @@ plan("sequential")
 tictoc::toc()
 
 ## Save predictions from sensitivity analysis
-saveRDS(sens_an_preds_dets, file= file.path('output', paste0('sens_an_', det_code, '_results_ECCEPmodel.rds') ) )
+saveRDS(sens_an_preds_dets, file= file.path('output', paste0('sens_an_', det_code, '_results_', Sys.Date(), '.rds') ) )
 
 
 ```
-
 
 ## Plot Setup
 
@@ -359,6 +363,7 @@ pred_plot
 ```
 
 ## Save Plot
+
 ```{r}
 ggsave( file= file.path('output', paste0('sens_an_', det_code, '.png') ), plot = pred_plot, width = 10, height = 6, dpi = 300 ) 
 
