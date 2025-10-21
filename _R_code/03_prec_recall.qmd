@@ -14,11 +14,11 @@ library(tidyverse)
 
 ```
 
-# Load the classification results of sensitivity analysis (large list)
+# 1. Load the classification results of sensitivity analysis (large list)
 ```{r}
-# Set det_combo to 1 and change det_code accordingly if plotting results from different detector combinations
+# Change det_combo to 1 and det_code accordingly if plotting results from different detector combinations
 det_combo <- 1
-det_code <- 'ECCEP'
+det_code <- 'DWCEP' #'ECCEP' 'ECDW'
 
 if (det_combo == 0){
 sa_results <- readRDS(file.path('output', 'sens_an_results.rds'))
@@ -29,7 +29,7 @@ sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results
 ```
 
 
-# 1. Make Precision-Recall dataframe 
+# 2. Make Precision-Recall dataframe 
 ```{r}
 data2plot_pr <- data.frame()
 
@@ -64,7 +64,7 @@ data2plot_pr <- rbind(data2plot_pr, pr_data)
 
 ```
 
-# 2. Calculate average P-R curves for total signals
+# 3. Calculate average P-R curves for total signals
 ```{r}
 # Define common recall points for interpolating the mean curves
 recall_points <- seq(0, 1, length.out = 100)
@@ -85,7 +85,7 @@ averaged_pr_curves <- data2plot_pr %>%
 
 ```
 
-# 3. Plot all P-R curves
+# 4. Plot all P-R curves
 ```{r}
 multi_pr_plot <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
   
@@ -127,7 +127,7 @@ ggsave( file= file.path('output', paste0('prec_rec_all_', det_code, '.png') ), p
 ```
 
 
-# 4. Plot mean P-R curves
+# 5. Plot mean P-R curves
 ```{r}
 multi_pr_plot_mean <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
   
