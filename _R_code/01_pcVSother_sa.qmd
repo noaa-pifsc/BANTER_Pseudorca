@@ -6,8 +6,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-# Prediction Steps
-
 ## Load libraries and set directory
 
 ```{r, load packages, message=FALSE}
@@ -52,14 +50,19 @@ Sys.setenv(TZ = 'UTC')
 ## Load banter model
 
 ```{r}
-bant_model <- readRDS(file.path(localwd, "BanterModel_McCullough2021.rds"))
+bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
 ```
 
 ## Load predicton data
 
 ```{r}
-acstudy_predict <- readRDS(file.path(localwd, 'AcStudy_HI_MI_pred.rds') ) 
+acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') )
+acstudy_filt <- filterClicks(acstudy_predict)
 
+#save test data to banter object
+#  banter_testdata <- export_banter(acstudy_predict, training=FALSE, dropSpecies = drop_Sp) 
+# saveRDS(banter_testdata, file.path('data', 'banter_HI_MI_pred.rds'))
+#  
 ```
 
 ## Sets pecies codes to exclude, or drop, from analysis - unidentified dolphins and beaked whales
@@ -85,14 +88,14 @@ predxn_params <- list(callsMod=callsMod,
                      callsPrd=callsPrd,
                      dets=dets,
                      iters=iters,
-                     notes = 'FULL MODEL. Excludes BWs and Unids. All detectors. 17 events. Filtered clicks!')
+                     notes = 'FULL MODEL. Excludes BWs and Unids. All detectors. Filtered acoustic study. ', Sys.time())
                 
 
-if (!dir.exists(file.path(localwd,"output"))) {
-  dir.create(file.path(localwd,"output"))
+if (!dir.exists(file.path("output"))) {
+  dir.create(file.path("output"))
 }
 
-saveRDS(predxn_params, file.path(localwd, "output", "sens_an_pred_params.rds"))
+saveRDS(predxn_params, file.path("output", "sens_an_pred_params_filt.rds"))
 
 ```
 
@@ -118,7 +121,7 @@ for (i in iters){
 
     #The variation in results stems from the random selection 
     #of signals from each detector in an encounter.
-    acstudy_predict_sub <- sampleDetector(acstudy_predict, n=p)  
+    acstudy_predict_sub <- sampleDetector(acstudy_filt, n=p)  
     
     # Print Run Info
     cat("***PREDICTIONS***: Iter", i, "For pred calls=", p, ", mod calls=", callsMod, ", and detectors =", dets)
@@ -134,18 +137,18 @@ for (i in iters){
     
     ### CLICK DETECTOR FILTERS ####
     #Remove clicks with bandwidth at 10dB < 5 kHz (Load 'dplyr' package)
-    for(d in c(1,2,3,4,5,8)){  #ensure that detector numbers match here
-      banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],BW_10dB > 5)
-      banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],peak > 5 & peak < 80)
-      banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],duration > 2 & duration < 1000)
-    }
+    # for(d in c(1,2,3,4,5,8)){  #ensure that detector numbers match here
+    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],BW_10dB > 5)
+    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],peak > 5 & peak < 80)
+    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],duration > 2 & duration < 1000)
+    # }
     
     #Remove clicks in individual detectors
-    banter_pred$detectors$Click_Detector_1<-filter(banter_pred$detectors$Click_Detector_1, peak>2 & peak<15)
-    banter_pred$detectors$Click_Detector_2<-filter(banter_pred$detectors$Click_Detector_2, peak>15 & peak<30)
-    banter_pred$detectors$Click_Detector_3<-filter(banter_pred$detectors$Click_Detector_3, peak>30 & peak<50)
-    banter_pred$detectors$Click_Detector_4<-filter(banter_pred$detectors$Click_Detector_4, peak>30 & peak<50)
-    banter_pred$detectors$Click_Detector_5<-filter(banter_pred$detectors$Click_Detector_5, peak>50 & peak<80) 
+    # banter_pred$detectors$Click_Detector_1<-filter(banter_pred$detectors$Click_Detector_1, peak>2 & peak<15)
+    # banter_pred$detectors$Click_Detector_2<-filter(banter_pred$detectors$Click_Detector_2, peak>15 & peak<30)
+    # banter_pred$detectors$Click_Detector_3<-filter(banter_pred$detectors$Click_Detector_3, peak>30 & peak<50)
+    # banter_pred$detectors$Click_Detector_4<-filter(banter_pred$detectors$Click_Detector_4, peak>30 & peak<50)
+    # banter_pred$detectors$Click_Detector_5<-filter(banter_pred$detectors$Click_Detector_5, peak>50 & peak<80) 
     
     
     ## Apply model, get predictions, make a dataframe to compare to true event IDs to predictions
@@ -162,43 +165,26 @@ for (i in iters){
     pred_resultsDF$tot_sigp = p
     pred_resultsDF$tot_sigm = callsMod
     pred_resultsDF$dets = paste(dets, collapse = "")
-    
-   # return(pred_resultsDF)
-   
-#     predxns <- predictions(acstudy_predict, callsPrd, callsMod, bant_model, i, dets)
-# 
-# # SAVE list of dataframes with prediction results to look at misclassifieds later
-#   for(h in 1:length(predxns[["bantpred_resultsi"]])){
-#     bantpred_results[[length(bantpred_results) + 1]] <- predxns[["bantpred_resultsi"]][[h]]
 
-
-##  MEMORY saving stuff 
-# rm( AcStudy_PcUO_sub, banter_mod)
-# gc()
-
-# SAVE confusion matrices in a list
-
-# for(h in 1:length(predxns[["bantpred_confMati"]])){
-# bantpred_confmatAll[[length(bantpred_confmatAll) + 1]] <- predxns[["bantpred_confMati"]][[h]]
-# }#c(confmat = confMat, dets= paste(dets, collapse = ""), iter=i, tot_signals = call_prd)
-# 
-# # Save confusion matrix overall scores for plotting
-# bantpred_confmatScores[[length(bantpred_confmatScores) + 1]] <- predxns[["bantpred_confMatScoresi"]]
-
+  #Save all confusion matrix data    
+confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
+                                  factor(pred_resultsDF$original), 
+                                  mode = 'everything', 
+                                  positive = 'X33')
 
  confMat <- confusionMatrix(factor(pred_resultsDF$predicted),factor(pred_resultsDF$original ), mode = 'everything')
 
- confMatscore <-data.frame(overall=confMat[["overall"]][[1]],
-                     true33 = confMat[["table"]][1],
-                     false33 = confMat[["table"]][2],
-                     false577 = confMat[["table"]][3],
-                     true577 = confMat[["table"]][4],
-                     iter = i,
-                     tot_sigp = p,
-                     tot_sigm = callsMod)
+ # confMatscore <-data.frame(overall=confMat[["overall"]][[1]],
+ #                     true33 = confMat[["table"]][1],
+ #                     false33 = confMat[["table"]][2],
+ #                     false577 = confMat[["table"]][3],
+ #                     true577 = confMat[["table"]][4],
+ #                     iter = i,
+ #                     tot_sigp = p,
+ #                     tot_sigm = callsMod)
  return(list(
    pred_results = pred_resultsDF, 
-   confmat_score = confMatscore))
+   confmat_score = confMat))
 
  } # callsPrd
     
@@ -217,7 +203,7 @@ tictoc::toc()
 
 ```{r}
 
-saveRDS(sens_an_preds, file= file.path(localwd, 'output', 'sens_an_results.rds') )
+saveRDS(sens_an_preds, file= file.path('output', 'sens_an_results_filt.rds') )
 
 ```
 
@@ -231,21 +217,18 @@ data2plot <- data.frame()
 for (y in (1:length(iters)) ){ 
   for (k in (1:length(callsPrd))) {
   
-  tmp <-sens_an_preds[[y]][[k]][["confmat_score"]]
-   
-  data2plot <- rbind(data2plot, tmp)
+  tmp <- sens_an_preds[[y]][[k]][["confmat_score"]]
+  tmpOut <- data.frame(tot_sigp = callsPrd[k], iter = y, 
+                       overall = tmp$overall[["Accuracy"]])
+   data2plot <- rbind(data2plot, tmpOut)
+  # data2plot <- rbind(data2plot, data.frame(overall = tmp$overall[["Accuracy"]]))
   }
 }
 
-
 ## Assign log values to original values of 'signals per detector'
-df <- data.frame(tot_sigp = callsPrd, times = 100)
+# df <- data.frame(tot_sigp = callsPrd, times = 100)
 
-data2plot2 <- make_log_seq(data2plot, "tot_sigp", "trans_sigp")
-head(data2plot2)
-
-data2plot <- data2plot2
-
+data2plot <- make_log_seq(data2plot, "tot_sigp", "trans_sigp")
 
 ```
 
@@ -255,12 +238,14 @@ data2plot <- data2plot2
 
 cols =  c("#214DBEFF" ,"#51B4FDFF" ,"#00E3DDFF" ,"#00F293FF" ,"#C6FC3FFF","#FF9B00", "#FF479A")
 
-
 results_scorep <- data2plot %>% group_by(tot_sigp, trans_sigp) %>%
                         summarise(mean = mean(overall),
-                                sd = sd(overall),
-                                mean_mis = mean(false33),
-                                sd_mis = sd(false33))# %>% arrange(as.numeric(iter))
+                                sd = sd(overall))
+# results_scorep <- data2plot %>% group_by(tot_sigp, trans_sigp) %>%
+#                         summarise(mean = mean(overall),
+#                                 sd = sd(overall),
+#                                 mean_mis = mean(false33),
+#                                 sd_mis = sd(false33))# %>% arrange(as.numeric(iter))
 
 
 p = ggplot(data = results_scorep, aes(x = trans_sigp, y = mean)) +
@@ -268,7 +253,8 @@ p = ggplot(data = results_scorep, aes(x = trans_sigp, y = mean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width = .07, linewidth = 0.5) +
   labs(title = paste0("BANTER Predictions: Pc vs Other - Full Model, ", iters[length(iters)], " iterations total") , # Clicks Only
-       subtitle = paste0("Model: excludes BWs & Unids,", " trees=2000", " & ", 20000, ", sampsize = 15"), # ':', n_evt[length(n_evt)] ) ,
+       subtitle = paste0('Uses filtered acoustic study, not banter filter'),
+       # subtitle = paste0("Model: excludes BWs & Unids,", " trees=2000", " & ", 20000, ", sampsize = 15"), # ':', n_evt[length(n_evt)] ) ,
        x = "Signals per Detector",
        y = "Mean Overall Accuracy",
        color = "Score Type") +
@@ -288,10 +274,12 @@ labels = data2plot$tot_sigp)  +
                                         linetype = "dotted"))
    
 p
-
+```
 
 ## Save Plot
-ggsave( file= file.path(localwd, 'output', 'sens_an_pred.png'), plot = p, width = 10, height = 6, dpi = 300 ) 
+```{r}
+
+ggsave( file= file.path('output', 'sens_an_pred_filt.png'), plot = p, width = 10, height = 6, dpi = 300 ) 
 
 ```
 
