@@ -59,7 +59,7 @@ bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
 acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') )
 acstudy_filt <- filterClicks(acstudy_predict)
 
-#save test data to banter object
+#Optional: Save test data to banter object
 #  banter_testdata <- export_banter(acstudy_predict, training=FALSE, dropSpecies = drop_Sp) 
 # saveRDS(banter_testdata, file.path('data', 'banter_HI_MI_pred.rds'))
 #  

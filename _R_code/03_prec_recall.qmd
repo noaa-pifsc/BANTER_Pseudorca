@@ -156,7 +156,7 @@ multi_pr_plot_mean <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
   # Add baseline prevalence line
   geom_hline(yintercept = mean(data2plot_pr$prev), linetype = "dotted", linewidth=1.2, color = "darkgray") +
   
-  geom_point(x=f1_pt$Recall, y=f1_pt$Mean_Precision) +
+  # geom_point(x=f1_pt$Recall, y=f1_pt$Mean_Precision) +
   
   labs(title = "Mean Precision-Recall Curves",
        subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
@@ -175,7 +175,7 @@ multi_pr_plot_mean
 ## Save Plot
 ```{r}
 if (det_combo == 0){
-ggsave( file= file.path('output', paste0('prec_rec_means.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= file.path('output', paste0('prec_rec_means_', Sys.Date() , '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 } else {
 ggsave( file= file.path('output', paste0('prec_rec_means_', det_code, '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 }
@@ -195,16 +195,91 @@ data2plot_pr <- data2plot_pr %>%
   mutate(
     # Calculate the squared difference from the target for both metrics
     distance_sq = (Precision - target_precision)^2 + (Recall - target_recall)^2
-  )
+  ) 
 
 # 4. FIND THE OPTIMAL THRESHOLD
 optimal_row <- data2plot_pr %>%
-  arrange(distance_sq) 
+  arrange(distance_sq) %>% head(1)
 
 # Get the coordinates of the optimal point on the average curve
 optimal_avg_point <- averaged_pr_curves %>%
-  filter(tot_sigp == "500", Recall == target_recall)
+    mutate(
+    # Calculate the squared difference from the target for both metrics
+    distance_sq = (Mean_Precision - target_precision)^2 + (Recall - target_recall)^2
+  ) %>% arrange(distance_sq) %>% head(1)
 
+
+```
+
+# 7. Work with Medians to Evaluate Performance
+```{r}
+# 1. LOAD COUNT DATA FOR PREDICTION TEST DATA
+
+sig_count <- read.csv(file.path('output', 'CountsSApreds_20251010.csv'))
+
+# 2. CALCULATE MEDIANS PER COLUMN
+# Calculate the median for each column 
+median_data <- sig_count %>%
+  # Reshape the data to long format first to easily group and calculate medians
+  pivot_longer(cols = c('NCep', 'NClicks', 'NWhistle', 'TS'), names_to = "Variable", values_to = "Value") %>%
+  group_by(Variable) %>%
+  summarise(
+    Mean = mean(Value, na.rm = TRUE),
+    Median = median(Value, na.rm = TRUE),
+    IQR = IQR(Value, na.rm = TRUE), #spread of central 50%, distance btwn Q1 and Q3
+    Q1 = quantile(Value, 0.25, na.rm = TRUE),
+    Q3 = quantile(Value, 0.75, na.rm = TRUE)
+  
+    )
+
+# 3. RESHAPE DATA FROM WIDE TO LONG FORMAT
+
+df_long <- sig_count %>%
+  pivot_longer(
+    cols = c('NCep', 'NClicks', 'NWhistle', 'TS'), # Apply to all columns
+    names_to = "Variable", # Column names become this new column's values
+    values_to = "Value"    # The actual data points go here
+  )
+# Join Q3 limits to the long data and filter
+df_visual <- df_long %>%
+  left_join(median_data %>% select(Variable, Q3), by = "Variable") %>%
+  filter(Value <= Q3)
+```
+
+```{r}
+# 4. GENERATE THE PLOT
+ggplot(df_visual, aes(x = Value)) +
+  
+  # A. Create the Histograms
+  geom_histogram(
+    bins = 20, # Adjust bin count for better visualization
+    fill = "skyblue", 
+    color = "black", 
+    alpha = 0.7
+  ) +
+  
+  # B. Draw the Median Line
+  geom_vline(
+    data = median_data, 
+    aes(xintercept = Median),
+    linetype = "dashed", 
+    color = "red", 
+    linewidth = .8
+  ) +
+  
+  # C. Facet the plot by the 'Variable' column
+  facet_wrap(~ Variable, scales = "free_x") + 
+  
+  labs(
+    title = "Distribution and Median of Signals Types:",
+    subtitle = "Prediction Test Data Set",
+    x = "Value",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+```{r}
 
 ```
 
