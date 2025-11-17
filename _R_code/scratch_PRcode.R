@@ -1,6 +1,9 @@
 quantile(sig_count$TS, probs = 0.95)
 
 acstudy_test <- sampleDetector(acstudy_filt, n=10)  
+drop_Sp = c('77','177','277','377','49','59','61','65')
+# drop_Sp = c('49','59','61','65') #remove only BWs
+
 
 # Using all available data
 banter_testdata <- export_banter(acstudy_filt, training=FALSE, dropSpecies = drop_Sp) 
@@ -92,8 +95,12 @@ confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
 
 # Precision-Recall Steps ####
 
-# pr_data2 <- pred_resultsDF # included all signals
-pr_data2 <- df_sa_10sigs # includes all events with > 10 signals
+## Change pr_data2 depending on the trial ##
+
+pr_data2 <- pred_resultsDF # includes all signals
+# pr_data2 <- df_sa_10sigs # includes all events with > 10 signals
+# pr_data2 <- df_ssc2 # includes all events that meet SSC
+
 
 true_labels <- factor(pr_data2$original, levels= c("X33", "X577")) 
 prob_33 <- pr_data2$X33 
@@ -130,16 +137,44 @@ pr_plot <- ggplot(data = pr_data, aes(x = Recall, y = Precision)) +
 
 pr_plot
 
-ggsave( file= file.path('output', paste0('prec_rec_10sig_', Sys.Date() , '.png') ), plot = pr_plot, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= file.path('output', paste0('prec_rec_ssc_', Sys.Date() , '.png') ), plot = pr_plot, width = 10, height = 6, dpi = 300 ) 
 
 
-# Remove events with too few signals ####
+# Signal# - Remove events with too few signals ####
 
 df_sa_10sigs <- filter(counts_signalsDF, TS > 10)
 
 df_sa_10sigs <- inner_join(df_sa_10sigs, pred_resultsDF, by = "event.id")
 
 
-# Remove events that don't meet SSC 
+# SSC - Remove events that don't meet SSC ####
 
+folder_path <- file.path('data', 'ssc')
+
+df_ssc <- list.files(file.path('data', 'ssc'), pattern = "\\.csv$", full.names = TRUE) %>% # files of events to KEEP
+map_dfr(~ read_csv(.x) %>% # automatically row-binds dataframes
+          mutate(source_file = basename(.x))) %>% # adds file name
+  rename(event.id = eventId)
+df_ssc$event.id <- as.character(df_ssc$event.id)
+
+#need to add in event.id from old data
+id_new <- df_ssc$event.id
+id_old <- pred_resultsDF[1:17,1]
+
+id_all <- c(id_new, id_old)
+
+df_ssc2 <- pred_resultsDF %>% 
+  filter(event.id %in% id_all)
+
+
+## Both ####
+
+# Total up signals from df_sa_10sigs?
+# Take 10sigs and save evennts that match id_all
+
+df_sa_ssc <- df_sa_10sigs %>% 
+  filter(event.id %in% id_all)
+
+intersect(df_ssc2$event.id, df_sa_ssc$event.id)
+setdiff(df_sa_ssc$event.id, df_ssc2$event.id)
 

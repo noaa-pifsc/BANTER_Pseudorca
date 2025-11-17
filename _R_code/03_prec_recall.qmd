@@ -143,11 +143,6 @@ ggsave( file= file.path('output', paste0('prec_rec_all_', det_code, '.png') ), p
 ```{r}
 multi_pr_plot_mean <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
   
-  # Plot individual model curves (colored by total signals)
-  # interaction() prevents sawtooth, ensures that the correct points are connected between both factors
-  # geom_line(aes(color = as.factor(tot_sigp), group = interaction(tot_sigp, iter)), 
-  #           linewidth = 0.8, alpha = 0.8) +
-  
   # Plot the averaged curve (bold and black)
   geom_line(data = averaged_pr_curves,
             aes(y = Mean_Precision, group = as.factor(tot_sigp),
@@ -279,7 +274,38 @@ ggplot(df_visual, aes(x = Value)) +
   theme_minimal(base_size = 14)
 ```
 
+# 8. Find Threshold at Median
 ```{r}
+# Using 50 signals as the median
+# Find Optimal Threshold
+target_recall <- 0.75
+target_precision <- 0.80
+
+
+# 3. CALCULATE DISTANCE TO TARGET
+# We calculate the Euclidean distance (d = sqrt((P_actual - P_target)^2 + (R_actual - R_target)^2))
+# The point with the smallest distance is the closest match to the target.
+data2plot_pr <- data2plot_pr %>%
+  mutate(
+    # Calculate the squared difference from the target for both metrics
+    distance_sq = (Precision - target_precision)^2 + (Recall - target_recall)^2
+  ) 
+
+# 4. FIND THE OPTIMAL THRESHOLD
+optimal_row <- data2plot_pr %>%
+  arrange(distance_sq) %>% head(1)
+
+# Get the coordinates of the optimal point on the average curve
+optimal_avg_point <- averaged_pr_curves %>%
+    mutate(
+    # Calculate the squared difference from the target for both metrics
+    distance_sq = (Mean_Precision - target_precision)^2 + (Recall - target_recall)^2
+  ) %>% arrange(distance_sq) %>% head(1)
+
+
+```
+
+
 
 ```
 

@@ -65,7 +65,7 @@ acstudy_filt <- filterClicks(acstudy_predict)
 #  
 ```
 
-## Sets pecies codes to exclude, or drop, from analysis - unidentified dolphins and beaked whales
+## Sets species codes to exclude, or drop, from analysis - unidentified dolphins and beaked whales
 
 ```{r}
 drop_Sp <- c('77','177','277','377','49','59','61','65')
@@ -172,7 +172,7 @@ confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
                                   mode = 'everything', 
                                   positive = 'X33')
 
- confMat <- confusionMatrix(factor(pred_resultsDF$predicted),factor(pred_resultsDF$original ), mode = 'everything')
+ # confMat <- confusionMatrix(factor(pred_resultsDF$predicted),factor(pred_resultsDF$original ), mode = 'everything')
 
  # confMatscore <-data.frame(overall=confMat[["overall"]][[1]],
  #                     true33 = confMat[["table"]][1],
