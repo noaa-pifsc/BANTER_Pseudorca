@@ -14,11 +14,12 @@ library(tidyverse)
 
 ```
 
-# 1. Load the classification results of sensitivity analysis (large list)
+# 1. Load the classification results of sensitivity analysis and parameters
 ```{r}
-# Change det_combo to 1 and det_code accordingly if plotting results from different detector combinations
-det_combo <- 0
-det_code <- 'DWCEP' #'ECCEP' 'ECDW'
+# Change det_combo from 0 to 1 and det_code accordingly if using sensitivity results from different detector combinations
+
+det_combo <- 1
+det_code <- 'DWCEP' #'ECCEP' 'DWCEP' 'ECDW'
 
 if (det_combo == 0){
 sa_results <- readRDS(file.path('output', 'sens_an_results.rds'))
@@ -26,6 +27,22 @@ sa_params <- readRDS(file.path('output', 'sens_an_pred_params.rds'))
 } else {
 sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results.rds')) )
 sa_params <- readRDS(file.path('output', paste0('sens_an_', det_code, '_params.rds')) )
+}
+
+```
+
+# 1b. OR load data for plots only
+```{r}
+# Change det_combo to 1 and det_code accordingly if plotting results from different detector combinations
+det_combo <- 0
+det_code <- 'ECDW' #'ECCEP' 'DWCEP' 'ECDW'
+
+if (det_combo == 0){
+data2plot_pr <- readRDS(file.path('output', 'sens_an_all_pr.rds'))
+mean_pr_curves <- readRDS(file.path('output', 'sens_an_means_pr.rds'))
+} else {
+data2plot_pr <- readRDS(file.path('output', paste0('sens_an_', det_code, '_all_pr.rds')) )
+mean_pr_curves <- readRDS(file.path('output', paste0('sens_an_', det_code, '_means_pr.rds')) )
 }
 
 ```
@@ -67,13 +84,13 @@ data2plot_pr <- rbind(data2plot_pr, pr_data)
 
 ```
 
-# 3. Calculate average P-R curves for total signals
+# 3. Calculate mean P-R curves for all signal levels
 ```{r}
 # Define common recall points for interpolating the mean curves
 recall_points <- seq(0, 1, length.out = 100)
 
 # Calculate the mean curve coordinates per tot_sigp
-averaged_pr_curves <- data2plot_pr %>%
+mean_pr_curves <- data2plot_pr %>%
   # Group by the model to perform interpolation separately
   group_by(tot_sigp, iter) %>%
   do({
@@ -90,11 +107,25 @@ averaged_pr_curves <- data2plot_pr %>%
 
 ## 3b. Calculate F1-Score
 ```{r}
-averaged_pr_curves$f1 <- 2 * averaged_pr_curves$Mean_Precision * averaged_pr_curves$Recall / (averaged_pr_curves$Mean_Precision+averaged_pr_curves$Recall)
+mean_pr_curves$f1 <- 2 * mean_pr_curves$Mean_Precision * mean_pr_curves$Recall / (mean_pr_curves$Mean_Precision+mean_pr_curves$Recall)
 
-f1_pt <- averaged_pr_curves[which.max(averaged_pr_curves$f1), ] 
+f1_pt <- mean_pr_curves[which.max(mean_pr_curves$f1), ] 
 ```
 
+## Save P-R Data
+```{r}
+if (det_combo == 0){
+saveRDS(data2plot_pr, file.path('output', 'sens_an_all_pr.rds'))
+  saveRDS(mean_pr_curves, file.path('output', 'sens_an_means_pr.rds'))
+
+} else {
+saveRDS(data2plot_pr, file.path('output', paste0('sens_an_', det_code, '_all_pr.rds')))
+  
+  saveRDS(mean_pr_curves, file.path('output', paste0('sens_an_', det_code, '_means_pr.rds')) )
+
+}
+
+```
 
 
 # 4. Plot all P-R curves
@@ -107,7 +138,7 @@ multi_pr_plot <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
             linewidth = 0.8, alpha = 0.8) +
   
   # Plot the averaged curve (bold and black)
-  geom_line(data = averaged_pr_curves,
+  geom_line(data = mean_pr_curves,
             aes(y = Mean_Precision, group = as.factor(tot_sigp)),
             color = 'red', #as.factor(tot_sigp)),
             linewidth = 0.75, linetype = "dashed") +
@@ -139,40 +170,45 @@ ggsave( file= file.path('output', paste0('prec_rec_all_', det_code, '.png') ), p
 ```
 
 
-# 5. Plot mean P-R curves
+# 5. Plot mean P-R curves only
 ```{r}
-multi_pr_plot_mean <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
-  
-  # Plot the averaged curve (bold and black)
-  geom_line(data = averaged_pr_curves,
-            aes(y = Mean_Precision, group = as.factor(tot_sigp),
+multi_pr_plot_mean <- ggplot() +
+  geom_line(data = mean_pr_curves,
+            aes(x = Recall, y = Mean_Precision, group = as.factor(tot_sigp),
             color = as.factor(tot_sigp)),
             linewidth = 1) +
   # Add baseline prevalence line
   geom_hline(yintercept = mean(data2plot_pr$prev), linetype = "dotted", linewidth=1.2, color = "darkgray") +
   
-  # geom_point(x=f1_pt$Recall, y=f1_pt$Mean_Precision) +
+  # Add F1 score
+  # geom_point(data=f1_pt,
+  #            aes(x=Recall, y=Mean_Precision),
+  #            color = 'red') +
   
-  labs(title = "Mean Precision-Recall Curves",
-       subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
+  labs(
+    title = "d)",
+       # subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
        x = "Recall (Sensitivity)",
        y = "Precision",
        color = "Signals per Detector") +
   scale_colour_viridis_d() +
   # scale_color_manual(values = c("Model A" = "#0072B2", "Model B" = "#D55E00")) +
   theme_bw() +
+  
+  theme(plot.title = element_text(size = 25)) + #, face = "bold")) +
+  
   coord_fixed() +
   xlim(0, 1) + ylim(0, 1)
 
 multi_pr_plot_mean
 ```
 
-## Save Plot
+## Save Plot to Manuscript folder
 ```{r}
 if (det_combo == 0){
-ggsave( file= file.path('output', paste0('prec_rec_means_', Sys.Date() , '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= file.path('manuscript', 'figures', paste0('prec_rec_means_', Sys.Date() , '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 } else {
-ggsave( file= file.path('output', paste0('prec_rec_means_', det_code, '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= file.path('manuscript', 'figures', paste0('prec_rec_means_', det_code, '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 }
 
 ```
@@ -197,7 +233,7 @@ optimal_row <- data2plot_pr %>%
   arrange(distance_sq) %>% head(1)
 
 # Get the coordinates of the optimal point on the average curve
-optimal_avg_point <- averaged_pr_curves %>%
+optimal_avg_point <- mean_pr_curves %>%
     mutate(
     # Calculate the squared difference from the target for both metrics
     distance_sq = (Mean_Precision - target_precision)^2 + (Recall - target_recall)^2
@@ -296,7 +332,7 @@ optimal_row <- data2plot_pr %>%
   arrange(distance_sq) %>% head(1)
 
 # Get the coordinates of the optimal point on the average curve
-optimal_avg_point <- averaged_pr_curves %>%
+optimal_avg_point <- mean_pr_curves %>%
     mutate(
     # Calculate the squared difference from the target for both metrics
     distance_sq = (Mean_Precision - target_precision)^2 + (Recall - target_recall)^2
