@@ -23,32 +23,12 @@ get_duration <- function(f) {
 # path <- "\\\\Piccrpnas\\crp2\\MACS_2015_TowedArray_Recording\\HF_Recordings"
 # path <- "\\\\Piccrpnas\\crp2\\MACS_2015_TowedArray_Recording\\MF_Recordings"
 path <- "\\\\Piccrpnas\\crp\\pifsc-1\\towed_array\\2018_MACS_1803"
-path <- "\\\\Piccrpnas\\crp2\\WHICEAS_2020_TowedArray_Recording\\Recording"
+path <- "\\\\Piccrpnas\\crp3\\pifsc-1\\towed_array\\2021_MACS_2102"
+path <- "\\\\Piccrpnas\\crp3\\pifsc-1\\towed_array\\2023_HICEAS_2303" #sete
 
 # Look through folder and subfolders
 files <- list.files(path, pattern = "\\.wav$", full.names = TRUE, recursive = TRUE)
-
-
-# Apply to all files
-durations_sec <- sapply(files, get_duration)
-
-total_hours <- sum(durations_sec) / 3600
-print(total_hours)
-
-
-
-
-
-
-
-get_duration <- function(f) {
-  tryCatch({
-    wav <- readWave(f, header = TRUE)
-    wav$samples / wav$sample.rate   # duration in seconds
-  
-    },
-  error = function(e) NA)           # skip bad files
-}
+# files2 <- list.files(path, pattern = "\\.wav$", full.names = TRUE, recursive = FALSE)
 
 # Any problem files?
 check_files <- sapply(files, function(f) {

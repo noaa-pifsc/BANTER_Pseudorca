@@ -96,6 +96,7 @@ This AcousticStudy includes acoustic events from multiple cruises over multiple 
 
 ```{r}
 acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') ) 
+acstudy_filt <- filterClicks(acstudy_predict)
 
 ```
 
@@ -121,6 +122,10 @@ det_code <- 'ECCEP'
 #Whistles and Cepstrum Only
 # dets <- c(6,7)
 # det_code <- 'DWCEP'
+
+#Whistles Only
+# dets <- c(7)
+# det_code <- 'DW'
 ```
 
 ## Parameters for Predictions
@@ -132,14 +137,14 @@ det_code <- 'ECCEP'
 callsMod <- 'All' 
 callsPrd <- c(3, 6, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 10000, 20000, 30000) 
 
-iters <- c(1:2)
+iters <- c(1:100)
 
 predxn_params <- list(callsMod=callsMod,
                      callsPrd=callsPrd,
                      dets=dets,
                      det_code = det_code,
                      iters=iters,
-                     notes = paste0(det_code, ' - Excludes BWs and Unids. - Uses bant_mdl_ECCEP - ', Sys.time()) )
+                     notes = paste0(det_code, ' - Excludes BWs and Unids. - ', Sys.time()) )
                 
 
 if (!dir.exists(file.path("output"))) {
@@ -173,7 +178,7 @@ for (i in iters){
 
     #The variation in results stems from the random selection 
     #of signals from each detector in an encounter.
-    acstudy_predict_sub <- sampleDetector(acstudy_predict, n=p)  
+    acstudy_predict_sub <- sampleDetector(acstudy_filt, n=p)  
     
     # Print Run Info
     cat("***PREDICTIONS***: Iter", i, "For pred calls=", p, ", mod calls=", callsMod, ", and detectors =", dets)
@@ -191,19 +196,19 @@ for (i in iters){
     ### CLICK DETECTOR FILTERS ####
     # Ensure that detector numbers, d, match the order in the banter object
     
-    for(d in c(1,2,3,4,5,8)){  
-      banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],BW_10dB > 5)
-      banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],peak > 5 & peak < 80)
-      banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],duration > 2 & duration < 1000)
-    }
-    
-    # Remove clicks in individual detectors
-    banter_pred$detectors$Click_Detector_1<-filter(banter_pred$detectors$Click_Detector_1, peak>2 & peak<15)
-    banter_pred$detectors$Click_Detector_2<-filter(banter_pred$detectors$Click_Detector_2, peak>15 & peak<30)
-    banter_pred$detectors$Click_Detector_3<-filter(banter_pred$detectors$Click_Detector_3, peak>30 & peak<50)
-    banter_pred$detectors$Click_Detector_4<-filter(banter_pred$detectors$Click_Detector_4, peak>30 & peak<50)
-    banter_pred$detectors$Click_Detector_5<-filter(banter_pred$detectors$Click_Detector_5, peak>50 & peak<80) 
-  
+    # for(d in c(1,2,3,4,5,8)){  
+    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],BW_10dB > 5)
+    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],peak > 5 & peak < 80)
+    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],duration > 2 & duration < 1000)
+    # }
+    # 
+    # # Remove clicks in individual detectors
+    # banter_pred$detectors$Click_Detector_1<-filter(banter_pred$detectors$Click_Detector_1, peak>2 & peak<15)
+    # banter_pred$detectors$Click_Detector_2<-filter(banter_pred$detectors$Click_Detector_2, peak>15 & peak<30)
+    # banter_pred$detectors$Click_Detector_3<-filter(banter_pred$detectors$Click_Detector_3, peak>30 & peak<50)
+    # banter_pred$detectors$Click_Detector_4<-filter(banter_pred$detectors$Click_Detector_4, peak>30 & peak<50)
+    # banter_pred$detectors$Click_Detector_5<-filter(banter_pred$detectors$Click_Detector_5, peak>50 & peak<80) 
+    # 
     
    ## Select subset of detectors
    banter_pred_sub <- select_detectors(banter_pred, dets)      

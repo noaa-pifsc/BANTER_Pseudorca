@@ -10,32 +10,32 @@ editor_options:
 ```{r}
 library(PRROC)
 library(tidyverse)
-
+library(fishualize)
 
 ```
 
-# 1. Load the classification results of sensitivity analysis and parameters
+# 1a. Load the classification results of sensitivity analysis and parameters
 ```{r}
 # Change det_combo from 0 to 1 and det_code accordingly if using sensitivity results from different detector combinations
 
 det_combo <- 1
-det_code <- 'DWCEP' #'ECCEP' 'DWCEP' 'ECDW'
+det_code <- 'ECCEP' #'ECCEP' 'DWCEP' 'ECDW'
 
 if (det_combo == 0){
 sa_results <- readRDS(file.path('output', 'sens_an_results.rds'))
 sa_params <- readRDS(file.path('output', 'sens_an_pred_params.rds'))
 } else {
-sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results.rds')) )
+sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results_2025-12-02.rds')) )
 sa_params <- readRDS(file.path('output', paste0('sens_an_', det_code, '_params.rds')) )
 }
 
 ```
 
-# 1b. OR load data for plots only
+# 1b. Load existing data for plots only
 ```{r}
 # Change det_combo to 1 and det_code accordingly if plotting results from different detector combinations
-det_combo <- 0
-det_code <- 'ECDW' #'ECCEP' 'DWCEP' 'ECDW'
+det_combo <- 1
+det_code <- 'ECCEP' #'ECCEP' 'DWCEP' 'ECDW'
 
 if (det_combo == 0){
 data2plot_pr <- readRDS(file.path('output', 'sens_an_all_pr.rds'))
@@ -186,16 +186,23 @@ multi_pr_plot_mean <- ggplot() +
   #            color = 'red') +
   
   labs(
-    title = "d)",
-       # subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
+     title = #"a) All Signal Types",
+        # "b) Clicks and Whistles",
+       "c) Clicks and Burst Pulses",
+    # "d) Whistles and Burst Pulses",
        x = "Recall (Sensitivity)",
        y = "Precision",
        color = "Signals per Detector") +
-  scale_colour_viridis_d() +
+  scale_color_fish_d(option = "Scarus_quoyi") +
+  # scale_colour_viridis_d() +
   # scale_color_manual(values = c("Model A" = "#0072B2", "Model B" = "#D55E00")) +
   theme_bw() +
   
-  theme(plot.title = element_text(size = 25)) + #, face = "bold")) +
+  theme(plot.title = element_text(size = 20),
+        axis.title = element_text(size = 17),
+        axis.text = element_text(size = 15),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size=14)) + #, face = "bold")) +
   
   coord_fixed() +
   xlim(0, 1) + ylim(0, 1)
@@ -206,7 +213,7 @@ multi_pr_plot_mean
 ## Save Plot to Manuscript folder
 ```{r}
 if (det_combo == 0){
-ggsave( file= file.path('manuscript', 'figures', paste0('prec_rec_means_', Sys.Date() , '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= file.path('manuscript', 'figures', paste0('prec_rec_means_', '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 } else {
 ggsave( file= file.path('manuscript', 'figures', paste0('prec_rec_means_', det_code, '.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 }
