@@ -24,7 +24,9 @@ get_duration <- function(f) {
 # path <- "\\\\Piccrpnas\\crp2\\MACS_2015_TowedArray_Recording\\MF_Recordings"
 path <- "\\\\Piccrpnas\\crp\\pifsc-1\\towed_array\\2018_MACS_1803"
 path <- "\\\\Piccrpnas\\crp3\\pifsc-1\\towed_array\\2021_MACS_2102"
-path <- "\\\\Piccrpnas\\crp3\\pifsc-1\\towed_array\\2023_HICEAS_2303" #sete
+path <- "\\\\Piccrpnas\\crp3\\pifsc-1\\towed_array\\2023_HICEAS_2401" #lasker
+path <- "\\\\Piccrpnas\\crp3\\pifsc-1\\towed_array\\2024_SCOPE_2404" #lasker
+
 
 # Look through folder and subfolders
 files <- list.files(path, pattern = "\\.wav$", full.names = TRUE, recursive = TRUE)
