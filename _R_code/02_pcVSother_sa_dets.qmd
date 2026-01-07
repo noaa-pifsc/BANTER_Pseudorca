@@ -110,31 +110,31 @@ drop_Sp <- c('77','177','277','377','49','59','61','65')
 Choose one of the options depending on what detectors are included in the analysis.
 Note- Check the order of detectors in 'banter_pred' to ensure the order is what you expect.
 ```{r}
-# The order of detectors in acstudy_predict is: C0, C1, C2, C3, C4, CEP, WMD, C5 - NOT NECESSARILY
+# The order of detectors in the banter object can change. That is accounted for in the code. These values are just for show.
 
 #Clicks and Whistles Only
-# dets <- c(2:5,7,8)
+# dets <- c(2:4,6:8)
 # det_code <- 'ECDW'
 
 #Clicks and Cepstrum Only
-# dets <- c(2:6,8)
+# dets <- c(2:5,7,8)
 # det_code <- 'ECCEP'
 
 #Whistles and Cepstrum Only
-# dets <- c(6,7)
-# det_code <- 'DWCEP'
+dets <- c(5,6)
+det_code <- 'DWCEP'
 
 #Whistles Only
-dets <- c(6)  #YB checked, 7= click_detector4 
-det_code <- 'DW'
+# dets <- c(6)  #YB checked, 7= click_detector4 
+# det_code <- 'DW'
 
 #Clicks Only
-dets <- c(2:4,7,8)  #YB checked, 7= click_detector4 
-det_code <- 'EC'
+# dets <- c(2:4,7,8)  #YB checked, 7= click_detector4 
+# det_code <- 'EC'
 
 #Burst pulses only
-dets <- 5
-det_code <- 'BP'
+# dets <- 5
+# det_code <- 'BP'
 ```
 
 ## Parameters for Predictions
@@ -160,7 +160,7 @@ if (!dir.exists(file.path("output"))) {
   dir.create(file.path("output"))
 }
 
-saveRDS(predxn_params, file.path("output", paste0("sens_an_", det_code, "_params.rds")) )
+saveRDS(predxn_params, file.path("output", paste0("sens_an_", det_code, "_params_", Sys.Date(), ".rds")) )
 
 ```
 
@@ -202,28 +202,21 @@ for (i in iters){
     banter_pred <- new_sp_id(banter_pred, "577")
     
  
-    ### CLICK DETECTOR FILTERS ####
-    # Ensure that detector numbers, d, match the order in the banter object
-    
-    # for(d in c(1,2,3,4,5,8)){  
-    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],BW_10dB > 5)
-    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],peak > 5 & peak < 80)
-    #   banter_pred$detectors[[d]]<-filter(banter_pred$detectors[[d]],duration > 2 & duration < 1000)
-    # }
-    # 
-    # # Remove clicks in individual detectors
-    # banter_pred$detectors$Click_Detector_1<-filter(banter_pred$detectors$Click_Detector_1, peak>2 & peak<15)
-    # banter_pred$detectors$Click_Detector_2<-filter(banter_pred$detectors$Click_Detector_2, peak>15 & peak<30)
-    # banter_pred$detectors$Click_Detector_3<-filter(banter_pred$detectors$Click_Detector_3, peak>30 & peak<50)
-    # banter_pred$detectors$Click_Detector_4<-filter(banter_pred$detectors$Click_Detector_4, peak>30 & peak<50)
-    # banter_pred$detectors$Click_Detector_5<-filter(banter_pred$detectors$Click_Detector_5, peak>50 & peak<80) 
-    # 
-    
    ## Select subset of detectors
+  det_names <- names(banter_pred[["detectors"]])
+  click_idx      <- which(grepl("^Click_Detector_", det_names))
+  cepstrum_idx  <- which(det_names == "Cepstrum_Detector")
+  whistle_idx   <- which(det_names == "Whistle_and_Moan_Detector")
     
+  if (det_code == 'ECDW'){
+  det_ind <- c(click_idx[2:6], whistle_idx) 
+  } else if (det_code == 'ECCEP') {
+    det_ind <- c(click_idx[2:6], cepstrum_idx)
+  } else {
+    det_ind <- c(whistle_idx, cepstrum_idx)
+  }
     
-    
-   banter_pred_sub <- select_detectors(banter_pred, dets)      
+   banter_pred_sub <- select_detectors(banter_pred, det_ind)      
     
     ## Apply model, get predictions, make a dataframe to compare to true event IDs to predictions
     

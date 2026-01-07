@@ -1,0 +1,85 @@
+---
+title: "Results Figures"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+## Load libraries and results
+
+
+```{r}
+library(readxl)
+library(tidyverse)
+```
+
+
+```{r}
+
+df <- read_excel(file.path('manuscript', 'casestudies_classification_metrics.xlsx') )
+
+df <- read_csv(file.path('manuscript', 'casestudies_classification_metrics.csv') )
+
+
+```
+
+
+```{r}
+
+table_results <- df %>%
+  select(dataset, threshold, predicted, tp, fp, tn, fn, fpr, fnr) %>%
+  arrange(threshold, dataset)
+
+table_results_fmt <- table_results %>%
+  mutate(
+    fpr = round(fpr, 3),
+    fnr = round(fnr, 3),
+    dataset = factor(dataset, levels = c("Baseline", "Filtered"))
+  )
+
+
+library(knitr)
+
+kable(
+  table_results_fmt,
+  caption = "Classification performance metrics across thresholds for baseline and filtered datasets."
+)
+
+
+```
+
+
+
+
+
+
+
+
+## Plot
+```{r}
+
+df_long <- df %>%
+  pivot_longer(
+    cols = c(fpr, fnr),
+    names_to = "metric",
+    values_to = "value"
+  )
+
+
+```
+
+```{r}
+ggplot(df_long, aes(x = class_thld, y = value, color = metric)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    x = "Classification threshold",
+    y = "Rate",
+    color = "Metric"
+  ) +
+  theme_minimal()
+```
+

@@ -1,0 +1,221 @@
+---
+title: "Table 1 data"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+```{r}
+library(tidyverse)
+```
+
+
+
+# Load Data
+```{r}
+# Load all case study data created from 00_data_wrangle.qmd
+# cs_all <- read.csv(here('output', paste0('case_studies_all_data_2026-01-03-raw.csv')))
+cs_all <- read.csv(here('output', paste0('case_studies_all_data_2026-01-03-edit.csv')))
+
+#Remove 1706259 due to mixed species
+cs_all <- filter(cs_all, event.id !='1706259')
+
+#Vector with event IDs for original 57 Pc events that passed all filters - 57 events from excel sheet, scan(text='57 event ids')
+# pc_evts_57 <- readRDS(here('data', 'original_57_pc.rds'))
+# pc_evts_58 <- c(1705323,pc_evts_57) #adding in 1705323 as it passed filters
+pc_evts_58 <- readRDS(here('data', 'original_58_pc.rds'))
+
+
+```
+
+# All Events - Baseline
+Now do the steps that I would do with the excel sheets
+```{r}
+
+# Gives predicted Pc
+base_all_pred_pc <- cs_all %>% filter(X33>=0.5)
+base_all_pred_uo <- cs_all %>% filter(X577>0.5)
+
+# Do rows add up? TRUE or FALSE
+nrow(cs_all) ==
+  nrow(base_all_pred_pc) + nrow(base_all_pred_uo)
+
+
+base_all_results <- data.frame()
+
+for(i in seq(0.5, 0.9, 0.1)){
+
+  base_all_pred_pc_i <- cs_all %>% filter(X33>=i)
+  base_all_pred_pc_j <- cs_all %>% filter(X33>=0.5 & X33<i) #Pc events missed by threshold
+
+# Total predicted as Pc
+tab_pc_pred <- nrow(base_all_pred_pc_i)
+
+# True positives- Pc predicted as Pc
+tab_pc_tp <- nrow(filter(base_all_pred_pc_i, pc == 1)) #58, correct
+tab_pc_tp_j <- nrow(filter(base_all_pred_pc_j, pc == 1))
+
+
+# False positives- UO predicted as Pc
+tab_pc_fp <- nrow(filter(base_all_pred_pc_i, pc == 0)) #76, seems correct, Does fp+tp= 133?
+
+# True negatives- UOs are predicted as UO
+tab_pc_tn <- nrow(filter(base_all_pred_uo, pc == 0))
+
+# False negatives- Pc predicted as UO
+tab_pc_fn <- nrow(filter(base_all_pred_uo, pc == 1)) + tab_pc_tp_j
+
+base_all_results <- rbind(
+    base_all_results,
+    data.frame(
+      threshold = i,
+      pred = tab_pc_pred,
+      tp   = tab_pc_tp,
+      fp   = tab_pc_fp,
+      tn   = tab_pc_tn,
+      fn   = tab_pc_fn,
+      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
+      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
+      rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn)
+    )
+  )
+
+
+}
+```
+
+# All Events - MDF & SSF
+Now do the steps that I would do with the excel sheets for the filtered events.
+```{r}
+cs_all_MDFSSF <- filter(cs_all, keep == TRUE | vis_ver == 1 & pc == 1 )
+
+# Gives predicted Pc
+MDFSSF_all_pred_pc <- cs_all_MDFSSF %>% filter(X33>=0.5)
+
+### Do some checks ###
+# events that did not pass the filters, but were included in the original 58
+MDFSSF_missed_evts <- setdiff(pc_evts_58, MDFSSF_all_pred_pc$event.id)
+MDFSSF_missed_evts <- setdiff(MDFSSF_all_pred_pc$event.id, pc_evts_58)
+MDFSSF_missed <- filter(cs_all, event.id %in% MDFSSF_missed_evts)
+
+# events that passed the filters, but were not included in original 58
+MDFSSF_missed_evts2 <- setdiff(MDFSSF_all_pred_pc$event.id, pc_evts_58)
+MDFSSF_missed2 <- filter(cs_all, event.id %in% MDFSSF_missed_evts2)
+
+# UOs that passed the filters
+MDFSSF_all_pred_uo <- cs_all_MDFSSF %>% filter(X577>0.5)
+
+# Do rows add up? TRUE or FALSE
+nrow(cs_all_MDFSSF) ==
+  nrow(MDFSSF_all_pred_pc) + nrow(MDFSSF_all_pred_uo)
+
+
+MDFSSF_all_results <- data.frame()
+
+for(i in seq(0.5, 0.9, 0.1)){
+
+MDFSSF_all_pred_pc_i <- cs_all_MDFSSF %>% filter(X33>=i)
+MDFSSF_all_pred_pc_j <- cs_all_MDFSSF %>% filter(X33>=0.5 & X33<i) #events below threshold
+
+# Total predicted as Pc
+tab_pc_pred <- nrow(MDFSSF_all_pred_pc_i)
+
+# True positives- Pc predicted as Pc
+tab_pc_tp <- nrow(filter(MDFSSF_all_pred_pc_i, pc == 1)) #57, correct
+tab_pc_tp_j <- nrow(filter(MDFSSF_all_pred_pc_j, pc == 1)) #TPs that are below i
+
+
+# False positives- UO predicted as Pc
+tab_pc_fp <- nrow(filter(MDFSSF_all_pred_pc_i, pc == 0)) #76, seems correct, adds up to 133
+
+# True negatives- UOs are predicted as UO
+tab_pc_tn <- nrow(filter(MDFSSF_all_pred_uo, pc == 0))
+
+# False negatives- Pc predicted as UO
+tab_pc_fn <- nrow(filter(MDFSSF_all_pred_uo, pc == 1)) + tab_pc_tp_j
+
+MDFSSF_all_results <- rbind(
+    MDFSSF_all_results,
+    data.frame(
+      threshold = i,
+      pred = tab_pc_pred,
+      tp   = tab_pc_tp,
+      fp   = tab_pc_fp,
+      tn   = tab_pc_tn,
+      fn   = tab_pc_fn,
+      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
+      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
+      rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn)
+    )
+  )
+
+
+}
+```
+
+
+# Visually-Verified Events - Baseline
+```{r}
+# True Positives
+cs_vv <- filter(cs_all, vis_ver == 1)
+  
+  
+# Gives predicted Pc
+base_vv_pred_pc <- cs_vv %>% filter(X33>=0.5)
+base_vv_pred_uo <- cs_vv %>% filter(X577>0.5)
+
+# Do rows add up? TRUE or FALSE
+nrow(cs_vv) ==
+  nrow(base_vv_pred_pc) + nrow(base_vv_pred_uo)
+
+
+base_vv_results <- data.frame()
+
+for(i in seq(0.5, 0.9, 0.1)){
+
+  base_vv_pred_pc_i <- cs_vv %>% filter(X33>=i)
+  base_vv_pred_pc_j <- cs_vv %>% filter(X33>=0.5 & X33<i) #Pc events missed by threshold
+
+# Total predicted as Pc
+tab_pc_pred <- nrow(base_vv_pred_pc_i)
+
+# True positives- Pc predicted as Pc
+tab_pc_tp <- nrow(filter(base_vv_pred_pc_i, pc == 1)) #57, correct
+tab_pc_tp_j <- nrow(filter(base_vv_pred_pc_j, pc == 1))
+
+
+# False positives- UO predicted as Pc
+tab_pc_fp <- nrow(filter(base_vv_pred_pc_i, pc == 0)) #76, seems correct, Does fp+tp= 133?
+
+# True negatives- UOs are predicted as UO
+tab_pc_tn <- nrow(filter(base_vv_pred_uo, pc == 0))
+
+# False negatives- Pc predicted as UO
+tab_pc_fn <- nrow(filter(base_vv_pred_uo, pc == 1)) + tab_pc_tp_j
+
+base_vv_results <- rbind(
+    base_vv_results,
+    data.frame(
+      threshold = i,
+      pred = tab_pc_pred,
+      tp   = tab_pc_tp,
+      fp   = tab_pc_fp,
+      tn   = tab_pc_tn,
+      fn   = tab_pc_fn,
+      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
+      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
+      rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn)
+    )
+  )
+
+
+}
+
+
+
+
+```
+

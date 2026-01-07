@@ -54,22 +54,3 @@ durations <- sapply(valid_files, function(f) {
 total_hours <- sum(durations) / 3600
 print(total_hours)
 
-
-
-df <- data.frame(file = basename(files)) %>%
-  tidyr::extract(file, into = "timestamp",
-                 regex = ".*_(\\d{8}_\\d{6})\\.wav") %>%
-  mutate(datetime = ymd_hms(timestamp))
-
-
-
-
-library(tuneR)
-
-df$duration_sec <- sapply(files, function(f) {
-  wav <- readWave(f, header = TRUE)
-  wav$samples / wav$sample.rate
-})
-
-total_hours <- sum(df$duration_sec) / 3600
-print(total_hours)
