@@ -6,6 +6,7 @@ editor_options:
   chunk_output_type: console
 ---
 
+This markdown uses results from the sensitivity analyses for all trials and creates Precision-Recall results with figures.
 
 ```{r}
 library(PRROC)
@@ -19,14 +20,14 @@ library(fishualize)
 # Change det_combo from 0 to 1 and det_code accordingly if using sensitivity results from different detector combinations
 
 det_combo <- 1
-det_code <- 'DWCEP' #'ECCEP' 'DWCEP' 'ECDW' DW EC BP
+det_code <- 'ECDW' #'ECCEP' 'DWCEP' 'ECDW' DW EC BP
 
 if (det_combo == 0){
 sa_results <- readRDS(file.path('output', 'sens_an_results.rds'))
 sa_params <- readRDS(file.path('output', 'sens_an_pred_params.rds'))
 } else {
-sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results_2025-12-22.rds')) )
-sa_params <- readRDS(file.path('output', paste0('sens_an_', det_code, '_params_2025-12-22.rds')) )
+sa_results <- readRDS(file.path('output', paste0('sens_an_', det_code, '_results_2025-12-20.rds')) )
+sa_params <- readRDS(file.path('output', paste0('sens_an_', det_code, '_params_2025-12-19.rds')) )
 }
 
 ```
@@ -35,7 +36,7 @@ sa_params <- readRDS(file.path('output', paste0('sens_an_', det_code, '_params_2
 ```{r}
 # Change det_combo to 1 and det_code accordingly if plotting results from different detector combinations
 det_combo <- 1
-det_code <- 'EC' #'ECCEP' 'DWCEP' 'ECDW'
+det_code <- 'ECDW' #'ECCEP' 'DWCEP' 'ECDW'
 
 if (det_combo == 0){
 data2plot_pr <- readRDS(file.path('output', 'sens_an_all_pr.rds'))

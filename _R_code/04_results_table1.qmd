@@ -7,6 +7,7 @@ editor_options:
 ---
 ```{r}
 library(tidyverse)
+library(here)
 ```
 
 
@@ -20,6 +21,14 @@ cs_all <- read.csv(here('output', paste0('case_studies_all_data_2026-01-03-edit.
 #Remove 1706259 due to mixed species
 cs_all <- filter(cs_all, event.id !='1706259')
 
+# Corrected the pc_vis col
+cs_all <- cs_all %>%
+  mutate(pc_vis2 = ifelse(VVAO == 2, 1, 0)) %>%
+relocate(pc_vis2, .after = pc_vis) %>% 
+  select(-pc_vis)
+
+write.csv(cs_all, here('output', paste0('case_studies_all_data_2026-02-25.csv')), row.names = FALSE)
+
 #Vector with event IDs for original 57 Pc events that passed all filters - 57 events from excel sheet, scan(text='57 event ids')
 # pc_evts_57 <- readRDS(here('data', 'original_57_pc.rds'))
 # pc_evts_58 <- c(1705323,pc_evts_57) #adding in 1705323 as it passed filters
@@ -27,6 +36,41 @@ pc_evts_58 <- readRDS(here('data', 'original_58_pc.rds'))
 
 
 ```
+
+# General Result Metrics
+```{r}
+# total acoustic events
+nrow(cs_all)
+
+# total signals
+sum(cs_all$TS)
+sum(cs_all$NWhistle)
+sum(cs_all$NClicks)
+sum(cs_all$NCep)
+
+# total sightings, all species
+cs_vv <- filter(cs_all, vis_id < 999)
+# total acoustic only events, all species
+cs_aconly <- filter(cs_all, vis_id == 999)
+
+# total sightings of Pc = true positives
+cs_vv_pc <- filter(cs_all, pc_vis ==1 & pc_ac== 1)
+nrow(cs_vv_pc)
+
+# What % of acoustic events were visually verified?
+round(nrow(cs_vv)/nrow(cs_all)*100,1)
+
+# What % of acoustic events were not visually verified (acoustic-only)?
+cs_ac <- filter(cs_all, pc_vis == 0)
+round(nrow(cs_ac)/nrow(cs_all)*100,1)
+
+# total acoustic only Pc - corresponds with localized events
+cs_ac_pc <- filter(cs_all, pc_vis == 0 & pc_ac== 1)
+nrow(cs_ac_pc)
+
+```
+
+
 
 # All Events - Baseline
 Now do the steps that I would do with the excel sheets
@@ -52,18 +96,18 @@ for(i in seq(0.5, 0.9, 0.1)){
 tab_pc_pred <- nrow(base_all_pred_pc_i)
 
 # True positives- Pc predicted as Pc
-tab_pc_tp <- nrow(filter(base_all_pred_pc_i, pc == 1)) #58, correct
-tab_pc_tp_j <- nrow(filter(base_all_pred_pc_j, pc == 1))
+tab_pc_tp <- nrow(filter(base_all_pred_pc_i, pc_ac == 1)) #59, correct
+tab_pc_tp_j <- nrow(filter(base_all_pred_pc_j, pc_ac == 1))
 
 
 # False positives- UO predicted as Pc
-tab_pc_fp <- nrow(filter(base_all_pred_pc_i, pc == 0)) #76, seems correct, Does fp+tp= 133?
+tab_pc_fp <- nrow(filter(base_all_pred_pc_i, pc_ac == 0)) #76, seems correct, Does fp+tp= 133?
 
 # True negatives- UOs are predicted as UO
-tab_pc_tn <- nrow(filter(base_all_pred_uo, pc == 0))
+tab_pc_tn <- nrow(filter(base_all_pred_uo, pc_ac == 0))
 
 # False negatives- Pc predicted as UO
-tab_pc_fn <- nrow(filter(base_all_pred_uo, pc == 1)) + tab_pc_tp_j
+tab_pc_fn <- nrow(filter(base_all_pred_uo, pc_ac == 1)) + tab_pc_tp_j
 
 base_all_results <- rbind(
     base_all_results,
@@ -88,7 +132,10 @@ base_all_results <- rbind(
 # All Events - MDF & SSF
 Now do the steps that I would do with the excel sheets for the filtered events.
 ```{r}
-cs_all_MDFSSF <- filter(cs_all, keep == TRUE | vis_ver == 1 & pc == 1 )
+cs_all_MDFSSF <- filter(cs_all, keep == TRUE ) #| pc_vis == 1 & pc == 1 )
+
+cs_all_tp = filter(cs_all, pc_ac == 1 & X33>=0.5)
+
 
 # Gives predicted Pc
 MDFSSF_all_pred_pc <- cs_all_MDFSSF %>% filter(X33>=0.5)
@@ -110,6 +157,8 @@ MDFSSF_all_pred_uo <- cs_all_MDFSSF %>% filter(X577>0.5)
 nrow(cs_all_MDFSSF) ==
   nrow(MDFSSF_all_pred_pc) + nrow(MDFSSF_all_pred_uo)
 
+ #+ tab_pc_tp_j
+
 
 MDFSSF_all_results <- data.frame()
 
@@ -122,18 +171,23 @@ MDFSSF_all_pred_pc_j <- cs_all_MDFSSF %>% filter(X33>=0.5 & X33<i) #events below
 tab_pc_pred <- nrow(MDFSSF_all_pred_pc_i)
 
 # True positives- Pc predicted as Pc
-tab_pc_tp <- nrow(filter(MDFSSF_all_pred_pc_i, pc == 1)) #57, correct
-tab_pc_tp_j <- nrow(filter(MDFSSF_all_pred_pc_j, pc == 1)) #TPs that are below i
+tab_pc_tp <- nrow(filter(MDFSSF_all_pred_pc_i, pc_ac == 1)) #57, correct
+tab_pc_tp_j <- nrow(filter(MDFSSF_all_pred_pc_j, pc_ac == 1)) #TPs that are below i
 
 
 # False positives- UO predicted as Pc
-tab_pc_fp <- nrow(filter(MDFSSF_all_pred_pc_i, pc == 0)) #76, seems correct, adds up to 133
+tab_pc_fp <- nrow(filter(MDFSSF_all_pred_pc_i, pc_ac == 0)) #76, seems correct, adds up to 133
 
 # True negatives- UOs are predicted as UO
-tab_pc_tn <- nrow(filter(MDFSSF_all_pred_uo, pc == 0))
+tab_pc_tn <- nrow(filter(MDFSSF_all_pred_uo, pc_ac == 0))
 
 # False negatives- Pc predicted as UO
-tab_pc_fn <- nrow(filter(MDFSSF_all_pred_uo, pc == 1)) + tab_pc_tp_j
+tab_pc_fn <- nrow(filter(cs_all, keep==FALSE & pc_ac==1 | pc_vis==1 & pc_ac ==1 & X33<0.5)) + tab_pc_tp_j
+
+# tab_pc_fn <-(nrow(cs_all_tp) - tab_pc_tp) + (nrow(filter(MDFSSF_all_pred_uo, pc == 1))) #+ tab_pc_tp_j
+
+# tab_pc_fn2 <- 4 + nrow(filter(MDFSSF_all_pred_uo, pc_ac == 1)) + tab_pc_tp_j
+
 
 MDFSSF_all_results <- rbind(
     MDFSSF_all_results,
@@ -144,10 +198,13 @@ MDFSSF_all_results <- rbind(
       fp   = tab_pc_fp,
       tn   = tab_pc_tn,
       fn   = tab_pc_fn,
+      # fn_4removed = tab_pc_fn2,
       fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
       fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      # fnr_4removed = tab_pc_fn2/(tab_pc_tp+tab_pc_fn2),
       prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
       rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn)
+      # rec_4removed = tab_pc_tp/(tab_pc_tp+tab_pc_fn2)
     )
   )
 
@@ -156,12 +213,158 @@ MDFSSF_all_results <- rbind(
 ```
 
 
+## MDF Only (mirror plot)
+```{r}
+MDF_only <- filter(cs_all, keepMDF == TRUE )
+# UOs that passed the filters
+MDF_only_pred_uo <- MDF_only %>% filter(X577>0.5)
+MDF_only_pred_pc <- MDF_only %>% filter(X33>=0.5)
+
+
+MDF_only_results <- data.frame()
+
+for(i in seq(0.5, 0.9, 0.1)){
+
+MDF_only_pred_pc_i <- MDF_only %>% filter(X33>=i)
+MDF_only_pred_pc_j <- MDF_only %>% filter(X33>=0.5 & X33<i) #events below threshold
+
+# Total predicted as Pc
+tab_pc_pred <- nrow(MDF_only_pred_pc_i)
+
+# True positives- Pc predicted as Pc
+tab_pc_tp <- nrow(filter(MDF_only_pred_pc_i, pc_ac == 1)) #57, correct
+tab_pc_tp_j <- nrow(filter(MDF_only_pred_pc_j, pc_ac == 1)) #TPs that are below i
+
+
+# False positives- UO predicted as Pc
+tab_pc_fp <- nrow(filter(MDF_only_pred_pc_i, pc_ac == 0)) #76, seems correct, adds up to 133
+
+# True negatives- UOs are predicted as UO
+tab_pc_tn <- nrow(filter(MDF_only_pred_uo, pc_ac == 0))
+
+# False negatives- Pc predicted as UO
+tab_pc_fn <- nrow(filter(cs_all, keep==FALSE & pc_ac==1 | pc_vis==1 & pc_ac ==1 & X33<0.5))  + tab_pc_tp_j
+# nrow(filter(MDF_only_pred_uo, pc_ac == 1))
+
+# tab_pc_fn <-(nrow(cs_all_tp) - tab_pc_tp) + (nrow(filter(MDFSSF_all_pred_uo, pc == 1))) #+ tab_pc_tp_j
+
+tab_pc_fn2 <- 4 + nrow(filter(MDF_only_pred_uo, pc_ac == 1)) + tab_pc_tp_j
+
+MDF_only_results <- rbind(
+    MDF_only_results,
+    data.frame(
+      threshold = i,
+      pred = tab_pc_pred,
+      tp   = tab_pc_tp,
+      fp   = tab_pc_fp,
+      tn   = tab_pc_tn,
+      fn   = tab_pc_fn,
+      # fn_4removed = tab_pc_fn2,
+      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
+      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      # fnr_4removed = tab_pc_fn2/(tab_pc_tp+tab_pc_fn2),
+      prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
+      rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn)
+      # rec_4removed = tab_pc_tp/(tab_pc_tp+tab_pc_fn2)
+    )
+  )
+
+
+}
+```
+
+## SSF Only (mirror plot)
+```{r}
+SSF_only <- filter(cs_all, keepSSF == TRUE )
+# UOs that passed the filters
+SSF_only_pred_uo <- SSF_only %>% filter(X577>0.5)
+
+SSF_only_results <- data.frame()
+
+for(i in seq(0.5, 0.9, 0.1)){
+
+SSF_only_pred_pc_i <- SSF_only %>% filter(X33>=i)
+SSF_only_pred_pc_j <- SSF_only %>% filter(X33>=0.5 & X33<i) #events below threshold
+
+# Total predicted as Pc
+tab_pc_pred <- nrow(SSF_only_pred_pc_i)
+
+# True positives- Pc predicted as Pc
+tab_pc_tp <- nrow(filter(SSF_only_pred_pc_i, pc_ac == 1)) #57, correct
+tab_pc_tp_j <- nrow(filter(SSF_only_pred_pc_j, pc_ac == 1)) #TPs that are below i
+
+
+# False positives- UO predicted as Pc
+tab_pc_fp <- nrow(filter(SSF_only_pred_pc_i, pc_ac == 0)) #76, seems correct, adds up to 133
+
+# True negatives- UOs are predicted as UO
+tab_pc_tn <- nrow(filter(SSF_only_pred_uo, pc_ac == 0))
+
+# False negatives- Pc predicted as UO
+tab_pc_fn <- nrow(filter(SSF_only_pred_uo, pc_ac == 1)) + tab_pc_tp_j
+
+# tab_pc_fn <-(nrow(cs_all_tp) - tab_pc_tp) + (nrow(filter(MDFSSF_all_pred_uo, pc == 1))) #+ tab_pc_tp_j
+
+tab_pc_fn2 <- 4 + nrow(filter(SSF_only_pred_uo, pc_ac == 1)) + tab_pc_tp_j
+
+SSF_only_results <- rbind(
+    SSF_only_results,
+    data.frame(
+      threshold = i,
+      pred = tab_pc_pred,
+      tp   = tab_pc_tp,
+      fp   = tab_pc_fp,
+      tn   = tab_pc_tn,
+      fn   = tab_pc_fn,
+      fn_4removed = tab_pc_fn2,
+      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
+      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      fnr_4removed = tab_pc_fn2/(tab_pc_tp+tab_pc_fn2),
+      prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
+      rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn),
+      rec_4removed = tab_pc_tp/(tab_pc_tp+tab_pc_fn2)
+    )
+  )
+
+
+}
+```
+
+
+### Mirror-plot prep
+```{r}
+
+base_all_results2 <- base_all_results %>% select(threshold, pred) %>% mutate(fill_key = paste0("baseline_", seq(0.5, 0.9, 0.1)), step = 'baseline') 
+
+base_all_results2$keep_top <-  base_all_results2$pred
+base_all_results2$toss_bott <-  base_all_results2$pred-base_all_results2$pred
+
+
+MDFSSF_all_results2 <- MDFSSF_all_results %>% select(threshold, pred) %>% mutate(fill_key = paste0("both_", seq(0.5, 0.9, 0.1)), step = 'both')
+
+MDFSSF_all_results2$keep_top <- MDFSSF_all_results2$pred
+MDFSSF_all_results2$toss_bott <- base_all_results2$pred-MDFSSF_all_results2$pred
+
+
+MDF_only_results2 <- MDF_only_results %>% select(threshold, pred) %>% mutate(fill_key = paste0("MDF_", seq(0.5, 0.9, 0.1)), step = 'MDF')
+MDF_only_results2$keep_top <- MDF_only_results2$pred
+MDF_only_results2$toss_bott <- base_all_results2$pred-MDF_only_results2$pred
+
+
+SSF_only_results2 <- SSF_only_results %>% select(threshold, pred) %>% mutate(fill_key = paste0("SSF_", seq(0.5, 0.9, 0.1)), step = 'SSF')
+SSF_only_results2$keep_top <- SSF_only_results2$pred
+SSF_only_results2$toss_bott <- base_all_results2$pred-SSF_only_results2$pred
+
+
+data_tot <- rbind(base_all_results2, MDFSSF_all_results2, MDF_only_results2, SSF_only_results2)
+
+data_tot$threshold <- as.factor(data_tot$threshold)
+
+```
+
 # Visually-Verified Events - Baseline
 ```{r}
-# True Positives
-cs_vv <- filter(cs_all, vis_ver == 1)
-  
-  
+
 # Gives predicted Pc
 base_vv_pred_pc <- cs_vv %>% filter(X33>=0.5)
 base_vv_pred_uo <- cs_vv %>% filter(X577>0.5)
@@ -169,6 +372,12 @@ base_vv_pred_uo <- cs_vv %>% filter(X577>0.5)
 # Do rows add up? TRUE or FALSE
 nrow(cs_vv) ==
   nrow(base_vv_pred_pc) + nrow(base_vv_pred_uo)
+# Pc sighting missed by banter
+  base_vv_missed <- cs_vv %>% filter(pc_vis==1 & pc_ac ==1 & X33<0.5)
+  
+  base_vv_missedSSF <- cs_vv %>% filter(pc_vis==1 & pc_ac ==1 & X33>=0.5 & keepSSF == FALSE)
+    
+  base_vv_missedMDF <- cs_vv %>% filter(pc_vis==1 & pc_ac ==1 & X33>=0.5 & keepMDF == FALSE)
 
 
 base_vv_results <- data.frame()
@@ -176,24 +385,24 @@ base_vv_results <- data.frame()
 for(i in seq(0.5, 0.9, 0.1)){
 
   base_vv_pred_pc_i <- cs_vv %>% filter(X33>=i)
-  base_vv_pred_pc_j <- cs_vv %>% filter(X33>=0.5 & X33<i) #Pc events missed by threshold
-
+  base_vv_pred_pc_j <- cs_vv %>% filter(X33>=0.5 & X33<i) #Pc events missed due to higher threshold
+  
 # Total predicted as Pc
 tab_pc_pred <- nrow(base_vv_pred_pc_i)
 
 # True positives- Pc predicted as Pc
-tab_pc_tp <- nrow(filter(base_vv_pred_pc_i, pc == 1)) #57, correct
-tab_pc_tp_j <- nrow(filter(base_vv_pred_pc_j, pc == 1))
+tab_pc_tp <- nrow(filter(base_vv_pred_pc_i, pc_ac == 1)) 
+tab_pc_tp_j <- nrow(filter(base_vv_pred_pc_j, pc_ac == 1))
 
 
-# False positives- UO predicted as Pc
-tab_pc_fp <- nrow(filter(base_vv_pred_pc_i, pc == 0)) #76, seems correct, Does fp+tp= 133?
+# False positives- banter predicted known UOs as Pc
+tab_pc_fp <- nrow(filter(base_vv_pred_pc_i, pc_ac == 0)) 
 
 # True negatives- UOs are predicted as UO
-tab_pc_tn <- nrow(filter(base_vv_pred_uo, pc == 0))
+tab_pc_tn <- nrow(filter(base_vv_pred_uo, pc_ac == 0 & pc_vis2 == 0))
 
 # False negatives- Pc predicted as UO
-tab_pc_fn <- nrow(filter(base_vv_pred_uo, pc == 1)) + tab_pc_tp_j
+tab_pc_fn <- nrow(filter(base_vv_pred_uo, pc_ac == 1)) + tab_pc_tp_j
 
 base_vv_results <- rbind(
     base_vv_results,
@@ -204,8 +413,8 @@ base_vv_results <- rbind(
       fp   = tab_pc_fp,
       tn   = tab_pc_tn,
       fn   = tab_pc_fn,
-      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
-      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      fpr = (tab_pc_fp/(tab_pc_fp+tab_pc_tn))*100,
+      fnr = (tab_pc_fn/(tab_pc_tp+tab_pc_fn))*100,
       prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
       rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn)
     )
@@ -215,7 +424,79 @@ base_vv_results <- rbind(
 }
 
 
-
-
 ```
 
+
+# Vis-Ver - MDF & SSF
+Now do the steps that I would do with the excel sheets for the filtered events.
+```{r}
+cs_vv_MDFSSF <- filter(cs_vv, keep == TRUE)# | pc_vis == 1 & pc == 1 )
+
+# This is the total vis-verified true positives for calculations = 31 sightings
+cs_vv_tp = filter(cs_vv, pc_ac== 1 & pc_vis2==1)
+
+
+# Gives predicted Pc - TP, but toss 4
+MDFSSF_vv_pred_pc <- cs_vv_MDFSSF %>% filter(X33 >= 0.5)
+
+# Pc vv tossed by filter(s) and/or BANTER
+MDFSSF_vv_missed <- cs_vv %>% filter(keep==FALSE & pc_vis2==1 | pc_vis==1 & pc_ac ==1 & X33<0.5)
+
+# UOs that passed the filters - TN
+MDFSSF_vv_pred_uo <- cs_vv_MDFSSF %>% filter(X577>0.5)
+
+# Do rows add up? TRUE or FALSE
+nrow(cs_vv_MDFSSF) ==
+  nrow(MDFSSF_vv_pred_pc) + nrow(MDFSSF_vv_pred_uo)
+
+
+MDFSSF_vv_results <- data.frame()
+
+for(i in seq(0.5, 0.9, 0.1)){
+
+MDFSSF_vv_pred_pc_i <- cs_vv_MDFSSF %>% filter(X33>=i)
+MDFSSF_vv_pred_pc_j <- cs_vv_MDFSSF %>% filter(X33>=0.5 & X33<i) #events below threshold
+
+# Total predicted as Pc
+tab_pc_pred <- nrow(MDFSSF_vv_pred_pc_i)
+
+# True positives- Pc predicted as Pc
+tab_pc_tp <- nrow(filter(MDFSSF_vv_pred_pc_i, pc_ac == 1)) #57, correct
+tab_pc_tp_j <- nrow(filter(MDFSSF_vv_pred_pc_j, pc_ac == 1)) #TPs that are below i
+
+
+# False positives- UO predicted as Pc
+tab_pc_fp <- nrow(filter(MDFSSF_vv_pred_pc_i, pc_ac == 0)) #76, seems correct, adds up to 133
+
+# True negatives- sightings of UOs are predicted as UO, 
+tab_pc_tn <- nrow(filter(MDFSSF_vv_pred_uo, pc_ac == 0))
+
+# False negatives- Here we KNOW Pc predicted as UO
+tab_pc_fn <- nrow(filter(cs_vv, keep==FALSE & pc_vis2==1 | pc_vis==1 & pc_ac ==1 & X33<0.5)) + tab_pc_tp_j
+
+# 
+# 
+# tab_pc_fn2 <- 4 + nrow(filter(MDFSSF_vv_pred_uo, pc_ac == 1)) + tab_pc_tp_j
+
+MDFSSF_vv_results <- rbind(
+    MDFSSF_vv_results,
+    data.frame(
+      threshold = i,
+      pred = tab_pc_pred,
+      tp   = tab_pc_tp,
+      fp   = tab_pc_fp,
+      tn   = tab_pc_tn,
+      fn   = tab_pc_fn,
+      # fn_4removed = tab_pc_fn2,
+      fpr = tab_pc_fp/(tab_pc_fp+tab_pc_tn),
+      fnr = tab_pc_fn/(tab_pc_tp+tab_pc_fn),
+      fnr_4removed = tab_pc_fn2/(tab_pc_tp+tab_pc_fn2),
+      prec=tab_pc_tp/(tab_pc_tp+tab_pc_fp),
+      rec = tab_pc_tp/(tab_pc_tp+tab_pc_fn),
+      # rec_4removed = tab_pc_tp/(tab_pc_tp+tab_pc_fn2)
+    )
+  )
+
+
+}
+```

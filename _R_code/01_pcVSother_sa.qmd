@@ -277,14 +277,15 @@ p
 ```
 
 ## Save Plot
+
 ```{r}
 
 ggsave( file= file.path('output', 'sens_an_pred_filt.png'), plot = p, width = 10, height = 6, dpi = 300 ) 
 
 ```
 
-
 ## Calculate SA Metrics
+
 ```{r}
 results_precrecall33 <- data2plot %>%
   mutate(
@@ -294,9 +295,6 @@ results_precrecall33 <- data2plot %>%
     F1       = 2 * (precision * recall) / (precision + recall))
 
 ```
-
-
-
 
 ```{r}
 ## All below plots the average precision, recall, and F1 separately for Pc only
@@ -320,8 +318,8 @@ results_metricsb <- results_precrecall33 %>% group_by(tot_sigp, trans_sigp) %>%
 
 ```
 
-
 ## Plot SA Metrics
+
 ```{r}
  # results_metricsLONG[results_metricsLONG$metric == "33", ]
 # F1 Score plot
@@ -360,4 +358,4 @@ plot_metrics
 
 
 ggsave( paste0( here('results/PcVsOther/Sensitivity_analysis'), '/PredictionMetrics_', Sys.Date(),'.png'), plot = plot_metrics, width = 12, height = 6, dpi = 300)
-```  
+```
