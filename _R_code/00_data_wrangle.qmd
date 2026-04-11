@@ -12,6 +12,7 @@ Code results in 'output/case_studies_all_data_2026-01-03-raw.csv'
 ```{r}
 library(here)
 library(PAMpal)
+source(here('_R_code', 'filterClicks.R'))
 ```
 
 
@@ -24,6 +25,7 @@ scores$event.id <- as.character(scores$event.id)
 ```
 
 ## Load Detection Logs
+Only for 2017, 2023, 2024 case study data sets
 ```{r}
 
 scope1 <- read.csv('C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\detection_logs\\2024_SCOPE_2404_log1.csv')
@@ -77,22 +79,28 @@ case_study_log <- bind_rows(scope2024log, hiceas2017log, hiceas2023log)
 
 write.csv(case_study_log, here('data', 'case_studies_detlog_.csv'))
 
+case_study_log <- read_csv(here('data', 'case_studies_detlog_.csv'), col_types = cols(event.id = col_character())) %>% select(-1)
+
 ```
 
 
 ## Join scores/counts with log by event.id
 ```{r}
 
-event_data <- inner_join(scores, case_study_log, by= 'event.id') 
+event_data <- inner_join(scores, case_study_log, by= 'event.id', suffix = c("", "")) 
 
 # Add columns for sightings and whether or not Pc
-event_data$pc_vis <- ifelse(event_data$vis_id <999, 1, 0)  ## WRONG
-event_data$pc_ac <- ifelse(event_data$VVAO==2 | event_data$VVAO==1, 1, 0)
-# Removing extra year column
-event_data <- event_data %>% select(-c(12)) %>% 
-  rename(year=year.y)
+# event_data$pc_vis <- ifelse(event_data$vis_id <999, 1, 0)  ## WRONG
 
-write.csv(event_data, here('output', 'case_studies_scores_detlog.csv'), row.names = FALSE)
+# Corrected the pc_vis col
+event_data <- event_data %>%
+  mutate(pc_vis = ifelse(VVAO == 2, 1, 0))
+
+
+event_data$pc_ac <- ifelse(event_data$VVAO==2 | event_data$VVAO==1, 1, 0)
+
+
+write.csv(event_data, here('output', 'case_studies_scores_detlog_20260408.csv'), row.names = FALSE)
 
 ```
 
@@ -103,8 +111,11 @@ Get the 'keep' columns from the event summary tables
 #Use acoustic studies filtered for noise already
 #1706
 detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2017_HICEAS_1706_ch5w32s_F.rds")
-#1705
-detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2017_HICEAS_1705_ch5_F.rdata")
+#1705 - Refiltered acoustic study due to discrepancies in click counts
+# detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2017_HICEAS_1705_ch5_F.rdata")
+detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2017_HICEAS_1705_ch5_F_YB.rdata")
+# detsFilt <- filterClicks(detsFilt)
+# saveRDS(detsFilt, "C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2017_HICEAS_1705_ch5_F_YB.rdata")
 #2303
 detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2023_HICEAS_2303_ch5_F.rdata")
 #2401
@@ -115,7 +126,7 @@ detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic
 detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2019_CRPGT_1901_ch5_F.rdata")
 #2001
 detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2020_WHICEAS_2001_ch4_F.rdata")
-#2021
+#2102
 detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2021_MACS_2102_ch4_F.rdata")
 
 ```
@@ -129,6 +140,34 @@ evTable$eventId <- names(PAMpal::events(detsFilt))
 
 # get all click data
 allClicks <- getClickData(detsFilt)
+
+# get all whistle data
+allWhistles <- getWhistleData(detsFilt)
+
+```
+
+### Tangent - 
+Combine clicks and whistles into separate data frames for all visually verified Pc
+This is for Figure 1 plots
+```{r}
+allClicks_vv <- filter(allClicks, eventId %in% pc_vv_all) #VV Pc from data_ssf
+assign(paste0("allClicks_", detsFilt@id), allClicks_vv) 
+
+allWhistles_vv <- filter(allWhistles, eventId %in% pc_vv_all) 
+assign(paste0("allWhistles_", detsFilt@id), allWhistles_vv) 
+
+allClicks_vv <- rbind(allClicks_2017TA_1705, allClicks_2017TA_1706, allClicks_2019TA_1901, allClicks_2020TA_2001, allClicks_2021TA_2102, allClicks_2023TA_2303, allClicks_2023TA_2401, allClicks_2024TA_2404 )
+saveRDS(allWhistles_vv, here("data", "fig1_ssf_densityplot_rawpeaks.rds"))
+
+
+allWhistles_vv <- rbind(allWhistles_2017TA_1705, allWhistles_2017TA_1706, allWhistles_2019TA_1901, allWhistles_2020TA_2001, allWhistles_2021TA_2102, allWhistles_2023TA_2303, allWhistles_2023TA_2401, allWhistles_2024TA_2404 )
+saveRDS(allWhistles_vv, here("data", "fig1_ssf_densityplot_rawwhistles.rds"))
+
+```
+
+
+
+```{r}
 # pull click summary stats
 evClickSummary <- allClicks %>%
   group_by(eventId) %>%
@@ -142,14 +181,14 @@ evClickSummary <- allClicks %>%
     numClicks_d5 = sum(detectorName == 'Click_Detector_5', na.rm = TRUE),
     click_medPeakFreq_kHz = median(peak, na.rm = TRUE), 
     click_p25PeakFreq_kHz = quantile(peak, 0.25, na.rm = TRUE), 
-    click_p75PeakFreq_kHz = quantile(peak, 0.75, na.rm = TRUE)
+    click_p75PeakFreq_kHz = quantile(peak, 0.75, na.rm = TRUE),
+    click_meanPeakFreq_kHz = mean(peak, na.rm = TRUE)
   )
 # add to output evTable
 evTable <- evTable %>%
   left_join(evClickSummary, by = c('eventId' = 'eventId'))
 
-# get all whistle data
-allWhistles <- getWhistleData(detsFilt)
+
 # pull whistle summary stats
 evWhistleSummary <- allWhistles %>%
   group_by(eventId) %>%
@@ -177,7 +216,36 @@ evTable$keep[which(# evTable$numClicks >= 10 &
      evTable$numClicks_d5 >= 20 |
      evTable$numWhistles >= 20) &
     (is.na(evTable$numClicks) | # if there are clicks check for freq criteria
-       evTable$click_medPeakFreq_kHz <= 22) &
+       evTable$click_medPeakFreq_kHz <= 24.4) &
+    (is.na(evTable$numWhistles) | # if there are whistles, check for freq criteria
+       evTable$whistle_medBeginFreq_Hz <= 8100 &
+       evTable$whistle_percBeginFreq4to8kHz >= .5))] <- TRUE
+
+# keeping 22.4 as the threshold
+evTable$keep22 <- FALSE
+evTable$keep22[which(# evTable$numClicks >= 10 &
+  (evTable$numClicks_d1 >= 20 |
+     evTable$numClicks_d2 >= 20 |
+     evTable$numClicks_d3 >= 20 |
+     evTable$numClicks_d4 >= 20 |
+     evTable$numClicks_d5 >= 20 |
+     evTable$numWhistles >= 20) &
+    (is.na(evTable$numClicks) | # if there are clicks check for freq criteria
+       evTable$click_medPeakFreq_kHz <= 22.4) &
+    (is.na(evTable$numWhistles) | # if there are whistles, check for freq criteria
+       evTable$whistle_medBeginFreq_Hz <= 8100 &
+       evTable$whistle_percBeginFreq4to8kHz >= .5))] <- TRUE
+
+evTable$keep23 <- FALSE
+evTable$keep23[which(# evTable$numClicks >= 10 &
+  (evTable$numClicks_d1 >= 20 |
+     evTable$numClicks_d2 >= 20 |
+     evTable$numClicks_d3 >= 20 |
+     evTable$numClicks_d4 >= 20 |
+     evTable$numClicks_d5 >= 20 |
+     evTable$numWhistles >= 20) &
+    (is.na(evTable$numClicks) | # if there are clicks check for freq criteria
+       evTable$click_medPeakFreq_kHz <= 23.2) &
     (is.na(evTable$numWhistles) | # if there are whistles, check for freq criteria
        evTable$whistle_medBeginFreq_Hz <= 8100 &
        evTable$whistle_percBeginFreq4to8kHz >= .5))] <- TRUE
@@ -197,7 +265,15 @@ evTable$keepMDF[which(# evTable$numClicks >= 10 &
 evTable$keepSSF <- FALSE
 evTable$keepSSF[which(# evTable$numClicks >= 10 &
   ((is.na(evTable$numClicks) | # if there are clicks check for freq criteria
-       evTable$click_medPeakFreq_kHz <= 22) &
+       evTable$click_medPeakFreq_kHz <= 24.4) & #22
+    (is.na(evTable$numWhistles) | # if there are whistles, check for freq criteria
+       evTable$whistle_medBeginFreq_Hz <= 8100 &
+       evTable$whistle_percBeginFreq4to8kHz >= .5)))] <- TRUE
+
+evTable$keepSSF22 <- FALSE
+evTable$keepSSF22[which(# evTable$numClicks >= 10 &
+  ((is.na(evTable$numClicks) | # if there are clicks check for freq criteria
+       evTable$click_medPeakFreq_kHz <= 22.4) & #22
     (is.na(evTable$numWhistles) | # if there are whistles, check for freq criteria
        evTable$whistle_medBeginFreq_Hz <= 8100 &
        evTable$whistle_percBeginFreq4to8kHz >= .5)))] <- TRUE
@@ -230,6 +306,17 @@ case_study_all <- inner_join(event_data, evTable_case_study, by= 'event.id')
 #Check that all event.id exist - THEY DO NOT for 1705
 setdiff(event_data$event.id, evTable_case_study$event.id)
 
+
+#Check for 1705 only
+evTable <- evTable %>% rename(event.id = eventId)
+case_study_1705 <- evTable %>% rename(event.id = eventId) %>% 
+  inner_join(event_data, by= 'event.id') 
+
+# event_data1705 <- filter(event_data, survey == 2017)
+setdiff(case_study_1705$event.id, evTable$event.id)
+setdiff(evTable$event.id, case_study_1705$event.id)
+
+
 #Load raw acstudy, then ran through event summary steps to pull out data for missing events
 detsFilt <- readRDS("C:\\Users\\yvonne.barkley\\Github\\ClassyPc\\data\\Acoustic_Studies/2017_HICEAS_1705_ch5.rdata")
 
@@ -242,7 +329,7 @@ write.csv(evTable_miss, file = here('output', paste0('case_studies_eventsumm_mis
 
 # ~~~~~~~~~~~
 #import manually edited event summary data for join
-evTable_miss_edit <- read.csv(here('output', paste0('case_studies_eventsumm_missing1705_EDIT_',                                                         Sys.Date(),'.csv')))
+evTable_miss_edit <- read.csv(here('output', paste0('case_studies_eventsumm_missing1705_EDIT_2026-01-02.csv')))
 
 #Combine edited missing event data with other case study data
 evTable_case_study2 <- rbind(evTable_case_study, evTable_miss_edit)
