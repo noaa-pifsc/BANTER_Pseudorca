@@ -1,0 +1,114 @@
+Cetacean Species Code | Scientific Name | Standard Common Name, Other Common Names
+67 | Balaena mysticetus | Bowhead whale
+71 | Balaenoptera acutorostrata | Common minke whale
+73 | Balaenoptera borealis | Sei whale
+99 | Balaenoptera borealis/edeni | Rorqual identified as a Sei or Bryde's whale
+72 | Balaenoptera edeni | Bryde's whale
+75 | Balaenoptera musculus | Blue whale
+74 | Balaenoptera physalus | Fin whale
+70 | Balaenoptera sp. | Unidentified rorqual
+62 | Berardius arnuxii | Arnoux's beaked whale, southern giant bottlenose whale
+63 | Berardius bairdii | Baird's beaked whale, northern giant bottlenose whale
+68 | Caperea marginata | Pygmy right whale
+30 | Cephalorhynchus commersonii | Commerson's dolphin, piebald dolphin
+29 | Cephalorhynchus eutropia | Black dolphin, Chilean dolphin
+19 | Cephalorhynchus heavisidii | Heaviside's dolphin
+20 | Cephalorhynchus hectori | Hector's dolphin, pied dolphin, white front dolphin
+45 | Delphinapterus leucas | White whale, beluga, belukha, sea canary
+16 | Delphinus capensis | Baja neritic common dolphin, long-beaked common dolphin
+17 | Delphinus delphis | Offshore common dolphin, short-beaked common dolphin
+5 | Delphinus sp. | Unidentified common dolphin, saddleback dolphin, whitebelly porpoise
+69 | Eschrichtius robustus | Gray whale
+86 | Eubalaena australis | Southern right whale
+66 | Eubalaena japonica | North Pacific right whale
+32 | Feresa attenuata | Pygmy killer whale, slender blackfish
+36 | Globicephala macrorhynchus | Short-finned pilot whale, blackfish, pothead
+35 | Globicephala melas | Long-finned pilot whale, Atlantic pilot whale, blackfish, pothead
+34 | Globicephala sp. | Unidentified pilot whale
+21 | Grampus griseus | Risso's dolphin, gray grampus
+84 | Hyperoodon ampullatus | Northern Bottlenose, North Atlantic bottlenose whale
+50 | Hyperoodon planifrons | Southern bottlenose whale, flathead bottlenose whale
+65 | Indopacetus pacificus | Longman's beaked whale
+94 | Inia geoffrensis | Boto, Amazon river dolphin
+47 | Kogia breviceps | Pygmy sperm whale
+48 | Kogia sima | Dwarf sperm whale
+80 | Kogia sp. | Unidentified Kogia - dwarf or pygmy sperm whale
+26 | Lagenodelphis hosei | Fraser's dolphin, Sarawak dolphin
+14 | Lagenorhynchus acutus | Atlantic white-sided dolphin
+12 | Lagenorhynchus albirostris | White-beaked dolphin
+23 | Lagenorhynchus australis | Peale's dolphin, blackchin dolphin
+24 | Lagenorhynchus cruciger | Hourglass dolphin
+22 | Lagenorhynchus obliquidens | Pacific white-sided dolphin, lag, hookfin porpoise
+25 | Lagenorhynchus obscurus | Dusky dolphin
+95 | Lipotes vexillifer | Baiji, Chinese river dolphin, whitefin dolphin
+27 | Lissodelphis borealis | Northern right whale dolphin
+28 | Lissodelphis peronii | Southern right whale dolphin
+76 | Megaptera novaeangliae | Humpback whale
+56 | Mesoplodon bidens | Sowerby's beaked whale
+54 | Mesoplodon bowdoini | Andrew's beaked whale, deepcrest whale
+52 | Mesoplodon carlhubbsi | Hubb's beaked whale, archbeak whale
+59 | Mesoplodon densirostris | Blaineville's beaked whale, dense-beaked, tropical beaked whale
+55 | Mesoplodon europaeus | Gervais' beaked whale, Antillean beaked whale
+57 | Mesoplodon ginkgodens | Ginkgo-toothed beaked whale
+58 | Mesoplodon grayi | Gray's beaked whale
+53 | Mesoplodon hectori | Hector's beaked whale
+60 | Mesoplodon layardii | Strap-toothed whale
+82 | Mesoplodon mirus | True's Beaked Whale
+109 | Mesoplodon perrini | Perrin's beaked whale
+1 | Mesoplodon peruvianus | Pygmy beaked whale
+51 | Mesoplodon sp. | Unidentified Mesoplodon
+83 | Mesoplodon sp. A | Unnamed beaked whale
+81 | Mesoplodon stejnegeri | Steinger's beaked whale, sabertooth, Bering Sea beaked whale
+85 | Monodon monoceros | Narwhal, sea unicorn
+43 | Neophocaena phocaenoides | Black finless porpoise
+8 | Orcaella brevirostris | Irrawaddy dolphin, Lumbalumba
+37 | Orcinus orca | Killer whale
+31 | Peponocephala electra | Melon-headed whale, Hawaiian/many-toothed blackfish, electra dolphin
+9 | Phocoena dioptrica | Spectacled porpoise
+40 | Phocoena phocoena | Harbor porpoise, herring hog
+41 | Phocoena sinus | Vaquita, Gulf of California harbor porpoise
+42 | Phocoena spinipinnis | Burmeister's porpoise, black porpoise
+44 | Phocoenoides dalli | Dall's porpoise
+46 | Physeter macrocephalus | Sperm whale
+92 | Platanista gangetica gangetica | Ganges river dolphin
+93 | Platanista gangetica minor | Indus river dolphin
+87 | Pontoporia blainvillei | Franciscana, La Plata dolphin
+33 | Pseudorca crassidens | False killer whale
+7 | Sotalia fluviatilis | Tucuxi, Guiana dolphin
+38 | Sousa chinensis | Indo-Pacific hump-backed dolphin, white dolphin
+39 | Sousa teuszii | Atlantic hump-backed dolphin
+2 | Stenella attenuata (offshore) | Offshore pantropical spotted dolphin, offshore spotter
+90 | Stenella attenuata (unid. subsp.) | Unidentified pantropical spotted dolphin, spotter porpoise
+6 | Stenella attenuata graffmani | Coastal spotted dolphin, spotter, silverbacks
+89 | Stenella attenuata/plagidon | Unidentified spotted dolphin in Atlantic
+4 | Stenella clymene | Clymene dolphin, short-snouted spinner dolphin
+13 | Stenella coeruleoalba | Striped dolphin, streaker porpoise, euphrosyne dolphin
+91 | Stenella frontalis | Atlantic spotted dolphin, spotter porpoise
+102 | Stenella longirostris (Gray's) | Gray's spinner dolphin, pantropical spinner dolphin
+101 | Stenella longirostris (southwestern) | Southwestern spinner dolphin
+100 | Stenella longirostris (Tres Marias) | Tres Marias spinner dolphin
+3 | Stenella longirostris (unid. subsp.) | Unidentified spinner dolphin, spinner porpoise
+11 | Stenella longirostris (whitebelly) | Whitebelly spinner dolphin
+88 | Stenella longirostris centroamericana | Central American spinner dolphin, Costa Rican spinner dolphin
+10 | Stenella longirostris orientalis | Eastern spinner dolphin
+103 | Stenella longirostris orientalis/centroamericana | Undetermined eastern or Central American spinner dolphin
+15 | Steno bredanensis | Rough-toothed dolphin, Steno
+64 | Tasmacetus shepherdi | Shepherd's beaked whale
+18 | Tursiops truncatus | Bottlenose dolphin, black porpoise, common porpoise
+49 | Ziphiid whale | Unidentified beaked whale
+61 | Ziphius cavirostris | Cuvier's beaked whale, goose-beaked whale
+77 | | Unidentified dolphin or porpoise
+78 | | Unidentified small whale
+79 | | Unidentified large whale
+96 | | Unidentified cetacean
+97 | | Unidentified object, possible marine mammal
+98 | | Unidentified whale
+177 | | Unidentified small delphinid (Delphinus, Lagenorhynchus, Lissodelphis or Stenella)
+277 | | Unidentified medium delphinid (Feresa, Grampus, Steno or Tursiops)
+377 | | Unidentified large delphinid (Pseudorca, Orca or Globicephala)
+477 | | Unidentified porpoise (Phocoena or Phocoenoides)
+111 | Resident Killer Whales
+110 | Transient Killer Whale
+```
+
+This list captures all of the species codes, scientific names, and common names provided in the source document.

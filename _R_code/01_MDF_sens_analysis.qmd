@@ -1,0 +1,257 @@
+---
+title: "Minimum Data Filter: Evaluate minimum data to optimize classification performance using combinations of detectors"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Prediction Steps
+
+## Load libraries, functions, and set directory
+
+```{r, load packages, message=FALSE}
+rm(list=ls())
+
+library("easypackages")
+libraries("PAMpal", "tidyverse", "banter", "rfPermute", "manipulate", "here", "caret", "future", "foreach", "doFuture", "progressr")
+
+## functions
+source(here('_R_code/filterClicks.r'))
+
+#function to change species Id in banter object
+new_sp_id <- function(x, nonPC) {
+  for (e in seq_along(x[["events"]][["species"]]) ) {
+    if (  x[["events"]][["species"]][[e]] != 33 ) {
+      x[["events"]][["species"]][[e]] <- nonPC
+    } 
+  }
+ x 
+}
+
+#function to take the log of the signals per detector for plotting purposes
+make_log_seq <- function(df, column_name, new_column_name = "Log_Sequence", from = 1, to = length(callsPrd)) {
+    unique_vals <- sort(unique(df[[column_name]])) # Get unique values
+    log_seq <- log10(callsPrd) # Generate log values of original sequence
+  
+  # Create a lookup table and map it to the original values
+    lookup <- setNames(log_seq, unique_vals) 
+    df[[new_column_name]] <- lookup[as.character(df[[column_name]])]
+  
+  return(df)
+}
+
+#change which detectors are included in data to predict on
+select_detectors <- function(bant_lst, detector_nums) {
+
+  # Make a copy of the original list
+  new_lst <- bant_lst
+  
+  # Subset detectors
+  new_lst$detectors <- bant_lst$detectors[detector_nums]
+  
+  return(new_lst)
+}
+
+#Set time zone to UTC
+Sys.setenv(TZ = 'UTC')
+
+here()
+```
+
+
+## Load banter model
+
+Load original model from McCullough et al. 2021.
+
+```{r}
+bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
+```
+
+## Load and process prediction data
+Section 2.2.1
+Load visually-verified PAM data in an acoustic study format. Then filter clicks for noise.
+
+```{r}
+# acoustic study
+acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') ) 
+
+# filter noise from click data
+acstudy_filt <- filterClicks(acstudy_predict)
+
+```
+
+## Species codes to exclude from analysis = unidentified dolphins and beaked whales
+Numeric codes come from 'Cetacean species codes.txt' in data folder
+```{r}
+drop_Sp <- c('77','177','277','377','49','59','61','65')
+```
+
+
+## Choose detector combination
+
+Choose one of the options depending on what detectors are included in the analysis. 
+
+```{r}
+# The order of detectors in the banter object can change. That is accounted for in the code. These values are just for informational purposes.
+
+#All Detectors
+dets <- c(2:8)
+det_code <- 'ALL' #clicks, whistles, cepstrum
+
+#Clicks and Whistles Only
+# dets <- c(2:4,6:8)
+# det_code <- 'ECDW'
+
+#Clicks and Cepstrum Only
+# dets <- c(2:5,7,8)
+# det_code <- 'ECCEP'
+
+#Whistles and Cepstrum Only
+# dets <- c(5,6)
+# det_code <- 'DWCEP'
+
+#Whistles Only
+# dets <- c(6)  #YB checked, 7= click_detector4 
+# det_code <- 'DW'
+
+#Clicks Only
+# dets <- c(2:4,7,8)  #YB checked, 7= click_detector4 
+# det_code <- 'EC'
+
+#Burst pulses only
+# dets <- 5
+# det_code <- 'BP'
+```
+
+## Parameters for Predictions
+
+```{r}
+
+#TEST PARAMETERS
+# For all detectors
+# callsMod <- 'All' # Use all signals 
+callsPrd <- c(3, 6, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 10000, 20000, 30000) 
+
+iters <- c(1:100)
+
+predxn_params <- list(callsPrd=callsPrd,
+                     dets=dets,
+                     det_code = det_code,
+                     iters=iters,
+                     notes = paste0(det_code, ' - Excludes BWs and Unids. - ', Sys.time()) )
+                
+
+if (!dir.exists(file.path("output"))) {
+  dir.create(file.path("output"))
+}
+
+saveRDS(predxn_params, file.path("output", paste0("sens_an_", det_code, "_params.rds")) )
+
+```
+
+## RUN Sensitivity Analysis Loop
+
+```{r}
+
+
+### START LOOP ####
+
+#save predictions for all iterations of the sensitivity analysis
+sens_an_preds_dets <- list()
+counter <-1
+
+options(doFuture.rng.onMisuse = "ignore", future.globals.maxSize = 2 * 1024^3)
+plan("multisession", workers=4)
+
+tictoc::tic()
+
+for (i in iters){
+
+      # for (call_prd in callsPrd){
+    pred_output <- foreach(p = callsPrd,  .options.future = list(packages = c("banter", "randomForest"))) %dofuture% {
+
+    #The variation in results stems from the random selection 
+    #of signals from each detector in an encounter.
+    acstudy_predict_sub <- sampleDetector(acstudy_filt, n=p)  
+    
+    # Print Run Info
+    cat("***PREDICTIONS***: Iter", i, "For pred calls=", p, "detectors =", dets)
+    
+    # banter_pred <- export_banter( c(events(acstudy_predict_sub), training=FALSE) )
+    banter_pred <- export_banter(acstudy_predict_sub, training=FALSE, dropSpecies = drop_Sp) 
+    
+    ## Make a dataframe with event IDs and original species codes
+    origSpCodes <- data.frame(banter_pred[["events"]])
+    
+    ## Change 'other' species code to 577
+    banter_pred <- new_sp_id(banter_pred, "577")
+    
+ 
+   ## Select subset of detectors using correct index
+  det_names <- names(banter_pred[["detectors"]])
+  click_idx      <- which(grepl("^Click_Detector_", det_names))
+  cepstrum_idx  <- which(det_names == "Cepstrum_Detector")
+  whistle_idx   <- which(det_names == "Whistle_and_Moan_Detector")
+    
+  if (det_code == 'ECDW'){
+  det_ind <- c(click_idx[2:6], whistle_idx) 
+  } else if (det_code == 'ECCEP') {
+    det_ind <- c(click_idx[2:6], cepstrum_idx)
+  } else {
+    det_ind <- c(whistle_idx, cepstrum_idx)
+  }
+    
+   banter_pred_sub <- select_detectors(banter_pred, det_ind)      
+    
+    ## Apply model, get predictions, make a dataframe to compare true event IDs to predictions
+    
+    pred_results <- banter::predict(bant_model, banter_pred_sub)
+    
+    pred_resultsDF <- as.data.frame(pred_results[["predict.df"]])
+    
+    pred_resultsDF <- pred_resultsDF[, c(1, 5, 2:4,6)]
+    
+    pred_resultsDF <- inner_join(origSpCodes, pred_resultsDF, by = 'event.id')
+    
+    pred_resultsDF$iter = i
+    pred_resultsDF$tot_sigp = p
+    # pred_resultsDF$tot_sigm = callsMod
+    pred_resultsDF$dets = paste(dets, collapse = "")
+    
+    # create different predictions based on higher threshold values
+    pred_resultsDF$predicted60 <- "X577"
+    for (thd in seq(1:nrow(pred_resultsDF))){
+      if (pred_resultsDF$X33[thd] >= 0.6) {
+        pred_resultsDF$predicted60[thd] <- "X33"
+      }
+    }
+    
+
+confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
+                                  factor(pred_resultsDF$original), 
+                                  mode = 'everything', 
+                                  positive = 'X33')
+
+ return(list(
+   pred_results = pred_resultsDF, 
+   confmat_score = confMat))
+
+ } # callsPrd
+    
+ ## save prediction results
+    sens_an_preds_dets[[counter]] <- pred_output
+     counter <- counter + 1 
+    
+  } #iteration
+# )
+plan("sequential")
+
+tictoc::toc()
+
+## Save predictions from sensitivity analysis
+saveRDS(sens_an_preds_dets, file= file.path('output', paste0('sens_an_', det_code, '_results.rds') ) )
+
+
+```
+
