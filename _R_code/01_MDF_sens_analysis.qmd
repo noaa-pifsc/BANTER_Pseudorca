@@ -1,10 +1,12 @@
 ---
-title: "Minimum Data Filter: Evaluate minimum data to optimize classification performance using combinations of detectors"
+title: "Minimum Data Filter: Sensitivity analysis to evaluate minimum data for optimal classification performance using combinations of detectors"
 format: html
 editor: visual
 editor_options: 
   chunk_output_type: console
 ---
+
+This markdown performs the steps necessary for the sensitivity analysis evaluating the minimum number of signals and combination of detectors required for optimal classification results.
 
 # Prediction Steps
 
@@ -14,7 +16,7 @@ editor_options:
 rm(list=ls())
 
 library("easypackages")
-libraries("PAMpal", "tidyverse", "banter", "rfPermute", "manipulate", "here", "caret", "future", "foreach", "doFuture", "progressr")
+libraries("here", "PAMpal", "tidyverse", "banter", "rfPermute", "manipulate", "caret", "future", "foreach", "doFuture", "progressr")
 
 ## functions
 source(here('_R_code/filterClicks.r'))
@@ -56,25 +58,24 @@ select_detectors <- function(bant_lst, detector_nums) {
 #Set time zone to UTC
 Sys.setenv(TZ = 'UTC')
 
-here()
-```
 
+```
 
 ## Load banter model
 
 Load original model from McCullough et al. 2021.
 
 ```{r}
-bant_model <- readRDS(file.path('data', "BanterModel_McCullough2021.rds"))
+bant_model <- readRDS(here('data', "BanterModel_McCullough2021.rds"))
 ```
 
 ## Load and process prediction data
-Section 2.2.1
-Load visually-verified PAM data in an acoustic study format. Then filter clicks for noise.
+
+Section 2.2.1 Load visually-verified PAM data in an acoustic study format. Then filter clicks for noise.
 
 ```{r}
-# acoustic study
-acstudy_predict <- readRDS(file.path('data', 'AcStudy_HI_MI_pred.rds') ) 
+# Acoustic study with all acoustic events from 2010-2021 collected in the Main Hawaiian Islands and Mariana Islands Archipelago
+acstudy_predict <- readRDS(here('data', 'AcStudy_HI_MI_pred.rds') ) 
 
 # filter noise from click data
 acstudy_filt <- filterClicks(acstudy_predict)
@@ -82,15 +83,16 @@ acstudy_filt <- filterClicks(acstudy_predict)
 ```
 
 ## Species codes to exclude from analysis = unidentified dolphins and beaked whales
+
 Numeric codes come from 'Cetacean species codes.txt' in data folder
+
 ```{r}
 drop_Sp <- c('77','177','277','377','49','59','61','65')
 ```
 
-
 ## Choose detector combination
 
-Choose one of the options depending on what detectors are included in the analysis. 
+Choose one of the `det_code` options depending on what detectors are included in the analysis.
 
 ```{r}
 # The order of detectors in the banter object can change. That is accounted for in the code. These values are just for informational purposes.
@@ -112,11 +114,11 @@ det_code <- 'ALL' #clicks, whistles, cepstrum
 # det_code <- 'DWCEP'
 
 #Whistles Only
-# dets <- c(6)  #YB checked, 7= click_detector4 
+# dets <- c(6)   
 # det_code <- 'DW'
 
 #Clicks Only
-# dets <- c(2:4,7,8)  #YB checked, 7= click_detector4 
+# dets <- c(2:4,7,8) 
 # det_code <- 'EC'
 
 #Burst pulses only
@@ -142,22 +144,22 @@ predxn_params <- list(callsPrd=callsPrd,
                      notes = paste0(det_code, ' - Excludes BWs and Unids. - ', Sys.time()) )
                 
 
-if (!dir.exists(file.path("output"))) {
-  dir.create(file.path("output"))
+if (!dir.exists(here("output"))) {
+  dir.create(here("output"))
 }
 
-saveRDS(predxn_params, file.path("output", paste0("sens_an_", det_code, "_params.rds")) )
+saveRDS(predxn_params, here("output", paste0("sens_an_", det_code, "_params.rds")) )
 
 ```
 
 ## RUN Sensitivity Analysis Loop
 
-```{r}
+This can take several minutes to complete. For testing purposes, change the `callsPrd` and `iters`.
 
+```{r}
 
 ### START LOOP ####
 
-#save predictions for all iterations of the sensitivity analysis
 sens_an_preds_dets <- list()
 counter <-1
 
@@ -178,7 +180,6 @@ for (i in iters){
     # Print Run Info
     cat("***PREDICTIONS***: Iter", i, "For pred calls=", p, "detectors =", dets)
     
-    # banter_pred <- export_banter( c(events(acstudy_predict_sub), training=FALSE) )
     banter_pred <- export_banter(acstudy_predict_sub, training=FALSE, dropSpecies = drop_Sp) 
     
     ## Make a dataframe with event IDs and original species codes
@@ -216,7 +217,6 @@ for (i in iters){
     
     pred_resultsDF$iter = i
     pred_resultsDF$tot_sigp = p
-    # pred_resultsDF$tot_sigm = callsMod
     pred_resultsDF$dets = paste(dets, collapse = "")
     
     # create different predictions based on higher threshold values
@@ -229,9 +229,8 @@ for (i in iters){
     
 
 confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
-                                  factor(pred_resultsDF$original), 
-                                  mode = 'everything', 
-                                  positive = 'X33')
+                                  factor(pred_resultsDF$original),
+      mode = 'everything',  positive = 'X33')
 
  return(list(
    pred_results = pred_resultsDF, 
@@ -244,14 +243,17 @@ confMat <- caret::confusionMatrix(factor(pred_resultsDF$predicted),
      counter <- counter + 1 
     
   } #iteration
-# )
+
 plan("sequential")
 
 tictoc::toc()
+```
 
+## Save
+
+```{r}
 ## Save predictions from sensitivity analysis
-saveRDS(sens_an_preds_dets, file= file.path('output', paste0('sens_an_', det_code, '_results.rds') ) )
+saveRDS(sens_an_preds_dets, file= here('output', paste0('sens_an_', det_code, '_results.rds') ) )
 
 
 ```
-

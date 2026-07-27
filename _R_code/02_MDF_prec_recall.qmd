@@ -1,52 +1,50 @@
 ---
-title: "Precision-Recall Curves"
+title: "Minimum Data Filter: Precision-Recall Curves"
 format: html
 editor: visual
 editor_options: 
   chunk_output_type: console
 ---
 
-This markdown uses results from the sensitivity analyses for all trials and creates Precision-Recall (P-R) results and plots (for Figure 1).
+This markdown uses results from the MDF sensitivity analyses for all trials and creates Precision-Recall (P-R) results and plots (Figure 1).
 
-```{r}
+
+## Load libraries
+```{r message=FALSE}
+library(here)
 library(PRROC)
 library(tidyverse)
 library(fishualize)
 
 ```
 
-# 1a. Load the classification results of sensitivity analysis and parameters
+## Load the classification results of the sensitivity analysis and parameters
 
 ```{r}
 # Change det_combo according to the detectors used in the sensitivity analysis
-iters = 2#100
+
 det_code <- 'ALL' #'ECDW' #'ECCEP' 'DWCEP' 'ECDW' DW EC BP
 
 
-sa_results <- readRDS(file.path('output', 'sens_an_ALL_results.rds'))# 'sens_an_results_filt.rds'))
-sa_params <- readRDS(file.path('output', 'sens_an_ALL_params.rds'))
+sa_results <- readRDS(here('output', paste0('sens_an_', det_code, '_results.rds')))
+sa_params <- readRDS(here('output', paste0( 'sens_an_', det_code, '_params.rds')))
 
 
 ```
 
-# 1b. If P-R data exists, load it to make plots only
+## If Precision-Recall (P-R) data already exist, load it to make plots only
 
 ```{r}
 # Change det_combo to 1 and det_code accordingly if plotting results from different detector combinations
 
-det_code <- 'ALL' #'ECDW' 'ECCEP' 'DWCEP' 'ECDW'
-
-if (det_combo == 0){
-data2plot_pr <- readRDS(file.path('output', 'sens_an_all_pr.rds'))
-mean_pr_curves <- readRDS(file.path('output', 'sens_an_means_pr.rds'))
-} else {
-data2plot_pr <- readRDS(file.path('output', paste0('sens_an_', det_code, '_all_pr.rds')) )
-mean_pr_curves <- readRDS(file.path('output', paste0('sens_an_', det_code, '_means_pr.rds')) )
-}
+# det_code <- 'ALL' #'ECDW' 'ECCEP' 'DWCEP' 'ECDW'
+# 
+# data2plot_pr <- readRDS(here('output', paste0('sens_an_', det_code, '_total_pr.rds')))
+# mean_pr_curves <- readRDS(here('output', paste0( 'sens_an_', det_code, '_means_pr.rds')))
 
 ```
 
-# 2. Make Precision-Recall dataframe
+## Make data frame of Precision-Recall values
 
 ```{r}
 data2plot_pr <- data.frame()
@@ -83,7 +81,7 @@ data2plot_pr <- rbind(data2plot_pr, pr_data)
 
 ```
 
-# 3. Calculate mean P-R curves for all signal levels
+## Calculate mean P-R curves for all signal levels
 
 ```{r}
 # Define common recall points for interpolating the mean curves
@@ -105,28 +103,29 @@ mean_pr_curves <- data2plot_pr %>%
 
 ```
 
-## 3b. Calculate F1-Score
+## Calculate F1-Score
 
 ```{r}
 mean_pr_curves$f1 <- 2 * mean_pr_curves$Mean_Precision * mean_pr_curves$Recall / (mean_pr_curves$Mean_Precision+mean_pr_curves$Recall)
 
 f1_pt <- mean_pr_curves[which.max(mean_pr_curves$f1), ] 
+f1_pt
 ```
 
 ## Save P-R Data
 
 ```{r}
 
-saveRDS(data2plot_pr, file.path('output', paste0('sens_an_', det_code, '_total_pr.rds')))
+saveRDS(data2plot_pr, here('output', paste0('sens_an_', det_code, '_total_pr.rds')))
   
-  saveRDS(mean_pr_curves, file.path('output', paste0('sens_an_', det_code, '_means_pr.rds')) )
+  saveRDS(mean_pr_curves, here('output', paste0('sens_an_', det_code, '_means_pr.rds')) )
 
 
 ```
 
-# 4. Plot all P-R curves
+## Plot all P-R curves
 
-Plots all P-R curves for all iterations.
+Plots all P-R curves for all `{r} length(sa_params$iters)` iterations.
 
 ```{r}
 multi_pr_plot <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
@@ -145,7 +144,7 @@ multi_pr_plot <- ggplot(data2plot_pr, aes(x = Recall, y = Precision)) +
   geom_hline(yintercept = mean(data2plot_pr$prev), linetype = "dotted", linewidth=1.2, color = "darkgray") +
   
   labs(title = "Precision-Recall Curves (with Averaged Curves)",
-       subtitle = paste("Includes", length(iters), "runs. Baseline Prevalence:", round(prevalence,3) ),
+       subtitle = paste("Includes", length(sa_params[["iters"]]), "runs. Baseline Prevalence:", round(prevalence,3) ),
        x = "Recall (Sensitivity)",
        y = "Precision",
        color = "Signals per Detector") +
@@ -163,14 +162,15 @@ multi_pr_plot
 ```{r}
 # Saves using filenames based on detectors that are included
 
-ggsave( file= file.path('output', paste0('pr_curves_', det_code, '_total.png') ), plot = multi_pr_plot, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= here('output', paste0('pr_curves_', det_code, '_total.png') ), plot = multi_pr_plot, width = 10, height = 6, dpi = 300 ) 
 
 
 ```
 
-# 5. Plot mean P-R curves only
-Plot only the mean P-R curve for each signal per detector level
-Change plot title according to the type of detectors included
+## Plot mean P-R curves only
+
+Plot only the mean P-R curve for each signal per detector level Change plot title according to the type of detectors included
+
 ```{r}
 multi_pr_plot_mean <- ggplot() +
   geom_line(data = mean_pr_curves,
@@ -214,12 +214,12 @@ multi_pr_plot_mean
 
 ```{r}
 
-ggsave( file= file.path('output', 'figures', paste0('pr_curves_', det_code, '_means.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
+ggsave( file= here('output', paste0('pr_curves_', det_code, '_means.png') ), plot = multi_pr_plot_mean, width = 10, height = 6, dpi = 300 ) 
 
 
 ```
 
-# 6. Find Optimal Threshold
+## Find Optimal Threshold
 
 ```{r}
 target_recall <- 0.75
@@ -238,12 +238,12 @@ data2plot_pr <- data2plot_pr %>%
 # 4. FIND THE OPTIMAL THRESHOLD
 optimal_row <- data2plot_pr %>%
   arrange(distance_sq) %>% head(1)
+optimal_row
 
 # Get the coordinates of the optimal point on the average curve by calculating the squared difference from the target for both metrics
 optimal_avg_point <- mean_pr_curves %>%
     mutate(distance_sq = (Mean_Precision - target_precision)^2 + (Recall - target_recall)^2
   ) %>% arrange(distance_sq) %>% head(1)
-
+optimal_avg_point
 
 ```
-

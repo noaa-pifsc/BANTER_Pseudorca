@@ -1,0 +1,151 @@
+---
+title: "Species-Specific Fileter: Configure filter boundaries based on visually-verified acoustic data"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+This code creates the SSF density plots for Fig. 2.
+
+## Load Libraries and settings
+
+```{r message=FALSE}
+library(here)
+library(tidyverse)
+library(here)
+library(patchwork)
+
+#Set time zone to UTC
+Sys.setenv(TZ = 'UTC')
+```
+
+## Load Data
+
+Load click and whistle data from visually-verified Pseudorca events, includes 2017-2024 cetacean surveys.
+
+```{r}
+allClicks_vv <- readRDS(here('data/fig2_ssf_densityplot_rawpeaks.rds'))
+
+allWhistles_vv <- readRDS(here('data/fig2_ssf_densityplot_rawwhistles.rds'))
+
+```
+
+## Fig 2a - Click Median Peak Frequencies
+
+```{r}
+# For plotting Fig 2a
+data_ssf_summ <- allClicks_vv %>%
+  group_by(eventId) %>%
+  summarise(
+    numClicks = n(),
+    # numClicks_d0 = sum(detectorName == 'Click_Detector_0', na.rm = TRUE),
+    numClicks_d1 = sum(detectorName == 'Click_Detector_1', na.rm = TRUE),
+    numClicks_d2 = sum(detectorName == 'Click_Detector_2', na.rm = TRUE),
+    numClicks_d3 = sum(detectorName == 'Click_Detector_3', na.rm = TRUE),
+    numClicks_d4 = sum(detectorName == 'Click_Detector_4', na.rm = TRUE),
+    numClicks_d5 = sum(detectorName == 'Click_Detector_5', na.rm = TRUE),
+    click_medPeakFreq_kHz = median(peak, na.rm = TRUE), 
+    click_p25PeakFreq_kHz = quantile(peak, 0.25, na.rm = TRUE), 
+    click_p75PeakFreq_kHz = quantile(peak, 0.75, na.rm = TRUE),
+    click_meanPeakFreq_kHz = mean(peak, na.rm = TRUE)
+  )
+
+fig2a_pct<- round(quantile(data_ssf_summ$click_medPeakFreq_kHz, 0.95, na.rm = TRUE),1)  
+
+fig2a <- ggplot() +
+  geom_density(aes(data_ssf_summ$click_p25PeakFreq_kHz),fill="#fde0dd", color="#fcc5c0", alpha=1) + #25th percentile of peak frequency
+  geom_density(aes(data_ssf_summ$click_p75PeakFreq_kHz),fill="#dadaeb", color="#9e9ac8", alpha=1) + #75th percentile of peak frequency
+  geom_density(aes(data_ssf_summ$click_medPeakFreq_kHz),fill="#c51b8a", color="#7a0177", alpha=0.5) + #median peak frequency
+  xlim(1,50) + 
+  ylim(0, 0.16) +
+geom_vline(xintercept = fig2a_pct, linetype = "dashed", color = "#c51b8a", linewidth = 0.7) +
+  annotate("text", x = fig2a_pct, y = 0.145, label = paste(fig2a_pct, 'kHz upper-bound'), 
+           hjust = -0.05,  # Negative values move text to the right of the 'x' anchor
+           vjust = 0,     # Centers text vertically on the 0.14 mark
+           color = "#c51b8a") +
+  labs(title = 'a) Clicks - Median Peak Freq.', 
+      x = "Frequency (kHz)",
+      y = "Density") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 12),
+        axis.title = element_text(size = 11),
+        axis.text = element_text(size = 10))
+
+fig2a
+```
+
+## Fig 2b - Whistle median beginning frequency
+
+```{r}
+
+evWhistleSumm_vv <- allWhistles_vv %>%
+  group_by(eventId) %>%
+  summarise(
+    numWhistles = n(),
+    whistle_medBeginFreq_Hz = median(freqBeg, na.rm = TRUE),
+    whistle_percBeginFreq4to8kHz = sum(freqBeg >= 4000 & freqBeg <= 8000)/n())
+
+
+fig2b_pct<- round(quantile(evWhistleSumm_vv$whistle_medBeginFreq_Hz/1000, 0.994, na.rm = TRUE),1)
+
+fig2b <- ggplot(evWhistleSumm_vv, aes(x=whistle_medBeginFreq_Hz/1000)) +
+  geom_density(fill="#99d8c9", color="#2ca25f", alpha=0.6) +
+  xlim(4,9) +
+  ylim(0,1) +
+  geom_vline(xintercept = fig2b_pct, linetype = "dashed", color = "#c51b8a", linewidth = 0.7) +
+  annotate("text", x = fig2b_pct, y = 0.9, label = paste(fig2b_pct, 'kHz upper-bound'), 
+           hjust = 1.1, 
+           vjust = 0, 
+           color = "#c51b8a") +
+   labs(title = 'b) Whistles - Median Beg. Freq.', 
+      x = "Frequency (kHz)",
+      y = "") +
+  theme_bw() +
+    theme(plot.title = element_text(size = 12),
+        axis.title = element_text(size = 11),
+        axis.text = element_text(size = 10))
+
+fig2b
+```
+
+## Fig 2c - Proportion of beginning whistle frequencies between 4-8 kHz
+
+```{r}
+mean(evWhistleSumm_vv$whistle_percBeginFreq4to8kHz >= 0.5, na.rm=TRUE)
+
+fig2c <- ggplot(evWhistleSumm_vv, aes(x=whistle_percBeginFreq4to8kHz)) +
+  geom_density(fill="#74a9cf", color="#034e7b", alpha=0.8)+
+  xlim(0.1,1.1)+
+  ylim(0,4)+
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "#c51b8a", linewidth = 0.7) +
+  annotate("text", x = 0.5, y = 3.5, label = paste(0.5, 'lower-bound'), 
+           hjust = -.08, vjust = -1, color = "#c51b8a") +
+  labs(title = 'c) Whistles - Proportion with 4-8 kHz', 
+      x = "Proportion",
+      y = "") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 12),
+        axis.title = element_text(size = 11),
+        axis.text = element_text(size = 10)) 
+
+fig2c
+```
+
+## Combine plots
+
+```{r}
+
+fig2 <- fig2a + fig2b + fig2c + plot_layout(ncol = 3, widths = c(2,2,2))
+
+fig2
+
+```
+
+## Save Fig 2 plot
+
+```{r warning =FALSE}
+# Save Fig 2
+ggsave(filename = here('output', "Fig2_SSF_DensityPlots.png"), width = 12, height = 6, dpi = 300, fig2)
+
+```
